@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f7fbf8;
+  --foreground: #113322;
+  --surface: #ffffff;
+  --surface-muted: #ecf7f0;
+  --border: #cfe4d5;
+  --primary: #1f8f57;
+  --primary-strong: #166640;
+  --primary-soft: #dff4e7;
+  --accent: #78c79c;
+  --ring: rgba(31, 143, 87, 0.2);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-strong: var(--primary-strong);
+  --color-primary-soft: var(--primary-soft);
+  --color-accent: var(--accent);
+  --color-ring: var(--ring);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background:
+    radial-gradient(circle at top left, rgba(120, 199, 156, 0.26), transparent 32%),
+    linear-gradient(180deg, #fcfffd 0%, #eef7f1 100%);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+a,
+button,
+input {
+  transition:
+    color 150ms ease,
+    background-color 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease;
+}
+
+::selection {
+  background: rgba(31, 143, 87, 0.18);
+  color: var(--foreground);
+}
