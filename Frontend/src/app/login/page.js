@@ -75,7 +75,7 @@ export default function LoginPage() {
       </section>
 
       <section className="relative flex flex-1 items-center justify-center px-6 py-10 sm:px-10">
-        <div className="w-full max-w-md rounded-[2rem] border border-border/80 bg-surface/95 p-8 shadow-[0_24px_80px_rgba(17,51,34,0.08)] backdrop-blur xl:p-10">
+        <div className="w-full max-w-md rounded-4xl border border-border/80 bg-surface/95 p-8 shadow-[0_24px_80px_rgba(17,51,34,0.08)] backdrop-blur xl:p-10">
           <div className="mb-8 space-y-4">
             <p className="text-sm font-medium uppercase tracking-[0.24em] text-primary">
               Welcome back
