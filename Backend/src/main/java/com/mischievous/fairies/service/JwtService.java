@@ -3,6 +3,7 @@ package com.mischievous.fairies.service;
 import com.mischievous.fairies.auth.JwtValidation;
 import com.mischievous.fairies.auth.RefreshTokenHasher;
 import com.mischievous.fairies.auth.filter.AuthTokens;
+import com.mischievous.fairies.common.exceptions.InvalidTokenException;
 import com.mischievous.fairies.common.exceptions.WrongCredentialsException;
 import com.mischievous.fairies.persistence.model.JwtEntity;
 import com.mischievous.fairies.persistence.model.AccountEntity;
@@ -42,7 +43,7 @@ public class JwtService {
         this.key = key;
     }
 
-    public String generateAccessToken(Integer userId, String email, AccountRole accountRole) {
+    public String generateAccessToken(Long userId, String email, AccountRole accountRole) {
         long now = System.currentTimeMillis();
 
         return Jwts.builder()
@@ -56,7 +57,7 @@ public class JwtService {
                 .compact();
     }
 
-    public String generateRefreshToken(Integer userId) {
+    public String generateRefreshToken(Long userId) {
         long now = System.currentTimeMillis();
 
         return Jwts.builder()
@@ -146,6 +147,15 @@ public class JwtService {
             token.setRevoked(true);
             jwtRepository.save(token);
         });
+    }
+
+    public Long extractUserIdFromRefreshToken(String refreshToken) {
+        if (refreshToken == null || !jwtValidation.validateToken(refreshToken)) {
+            throw new InvalidTokenException("invalid token");
+        }
+
+        Claims claims = jwtValidation.parseClaims(refreshToken);
+        return Long.valueOf(claims.getSubject());
     }
 
     @Transactional

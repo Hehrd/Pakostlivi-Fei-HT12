@@ -1,8 +1,8 @@
 package com.mischievous.fairies.service;
 
 import com.mischievous.fairies.common.exceptions.UserNotExistingException;
-import com.mischievous.fairies.controller.dtos.request.ClientReqDTO;
-import com.mischievous.fairies.controller.dtos.response.ClientResDTO;
+import com.mischievous.fairies.controller.dtos.request.user.ClientReqDTO;
+import com.mischievous.fairies.controller.dtos.response.user.ClientResDTO;
 import com.mischievous.fairies.persistence.model.AccountEntity;
 import com.mischievous.fairies.persistence.model.ClientEntity;
 import com.mischievous.fairies.persistence.repository.AccountRepository;

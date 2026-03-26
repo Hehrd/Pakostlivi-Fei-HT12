@@ -1,4 +1,4 @@
-package com.mischievous.fairies.controller.dtos.request;
+package com.mischievous.fairies.controller.dtos.request.user;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
