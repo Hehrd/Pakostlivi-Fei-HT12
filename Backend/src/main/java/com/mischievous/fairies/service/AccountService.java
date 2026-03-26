@@ -3,54 +3,52 @@ package com.mischievous.fairies.service;
 import com.mischievous.fairies.auth.filter.AuthTokens;
 import com.mischievous.fairies.common.exceptions.EmailAlreadyInUseException;
 import com.mischievous.fairies.common.exceptions.WrongCredentialsException;
-import com.mischievous.fairies.controller.dtos.request.UserLogInDTO;
-import com.mischievous.fairies.controller.dtos.request.UserSignUpDTO;
+import com.mischievous.fairies.controller.dtos.request.UserReqLogInDTO;
+import com.mischievous.fairies.controller.dtos.request.UserReqSignUpDTO;
 import com.mischievous.fairies.persistence.model.AccountEntity;
-import com.mischievous.fairies.persistence.repository.UserAccountRepository;
+import com.mischievous.fairies.persistence.repository.AccountRepository;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-@Service
-public class UserAccountService {
+import java.util.Map;
 
-    private final UserAccountRepository userAccountRepository;
+@Service
+public class AccountService {
+
+    private final AccountRepository accountRepository;
     private final JwtService jwtService;
     private final BCryptPasswordEncoder passwordEncoder;
 
-    public UserAccountService(
-            UserAccountRepository userAccountRepository,
+    public AccountService(
+            AccountRepository accountRepository,
             JwtService jwtService,
             BCryptPasswordEncoder passwordEncoder
     ) {
-        this.userAccountRepository = userAccountRepository;
+        this.accountRepository = accountRepository;
         this.jwtService = jwtService;
         this.passwordEncoder = passwordEncoder;
     }
 
     @Transactional
-    public AuthTokens signUp(UserSignUpDTO dto) throws EmailAlreadyInUseException {
-        if (userAccountRepository.existsByEmail(dto.getEmail())) {
+    public Map<String, Boolean> signUp(UserReqSignUpDTO userReqSignUpDTO) throws EmailAlreadyInUseException {
+        if (accountRepository.existsByEmail(userReqSignUpDTO.getEmail())) {
             throw new EmailAlreadyInUseException("Email is already in use");
         }
 
-        AccountEntity user = new AccountEntity();
-        user.setUsername(dto.getUsername());
-        user.setEmail(dto.getEmail());
-        user.setPasswordHash(passwordEncoder.encode(dto.getPassword()));
+        AccountEntity accountEntity = new AccountEntity();
+        accountEntity.setEmail(userReqSignUpDTO.getEmail());
+        accountEntity.setPasswordHash(passwordEncoder.encode(userReqSignUpDTO.getPassword()));
+        accountEntity.setRole(userReqSignUpDTO.getRole());
 
-        AccountEntity savedUser = userAccountRepository.save(user);
+        AccountEntity savedUser = accountRepository.save(accountEntity);
 
-        String accessToken = jwtService.generateAccessToken(savedUser.getId(), savedUser.getEmail());
-        String refreshToken = jwtService.generateRefreshToken(savedUser.getId());
-        jwtService.saveRefreshToken(refreshToken, savedUser);
-
-        return new AuthTokens(accessToken, refreshToken);
+        return Map.of("ok", true);
     }
 
     @Transactional
-    public AuthTokens logIn(UserLogInDTO dto) throws WrongCredentialsException {
-        AccountEntity user = userAccountRepository.findByEmail(dto.getEmail())
+    public AuthTokens logIn(UserReqLogInDTO dto) throws WrongCredentialsException {
+        AccountEntity user = accountRepository.findByEmail(dto.getEmail())
                 .orElseThrow(() -> new WrongCredentialsException("Invalid credentials"));
 
         if (!passwordEncoder.matches(dto.getPassword(), user.getPasswordHash())) {
@@ -59,7 +57,9 @@ public class UserAccountService {
 
         jwtService.revokeAllUserTokens(user);
 
-        String accessToken = jwtService.generateAccessToken(user.getId(), user.getEmail());
+        String accessToken = jwtService.generateAccessToken(user.getId(),
+                                                            user.getEmail(),
+                                                            user.getRole());
         String refreshToken = jwtService.generateRefreshToken(user.getId());
         jwtService.saveRefreshToken(refreshToken, user);
 

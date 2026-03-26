@@ -1,10 +1,27 @@
 package com.mischievous.fairies.persistence.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
+import lombok.Data;
 
 @Entity
+@Data
+@Table(name = "clients")
 public class ClientEntity {
-    //private AccountEntity account;
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
+    private String firstname;
+
+    @Column(nullable = false)
+    private String lastname;
+
+    @Column(nullable = false)
+    private String profilePictureUrl;
+
+    @OneToOne(cascade = CascadeType.ALL, optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
+    private AccountEntity account;
 }
