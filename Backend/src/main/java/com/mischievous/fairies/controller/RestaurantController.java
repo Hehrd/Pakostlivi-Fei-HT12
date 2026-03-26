@@ -4,10 +4,12 @@ import com.mischievous.fairies.controller.dtos.request.restaurant.CreateRestaura
 import com.mischievous.fairies.controller.dtos.request.restaurant.DeleteRestaurantRequestDto;
 import com.mischievous.fairies.controller.dtos.request.restaurant.GetRestaurantByIdRequestDto;
 import com.mischievous.fairies.controller.dtos.request.restaurant.UpdateRestaurantRequestDto;
+import com.mischievous.fairies.controller.dtos.response.PagedResponse;
 import com.mischievous.fairies.controller.dtos.response.restaurant.RestaurantResponseDto;
 import com.mischievous.fairies.service.RestaurantService;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -38,10 +40,9 @@ public class RestaurantController {
     }
 
     @GetMapping
-    public ResponseEntity<List<RestaurantResponseDto>> getAllRestaurants() {
-        List<RestaurantResponseDto> restaurants =
-                restaurantService.getAllRestaurants();
-
+    public ResponseEntity<PagedResponse<RestaurantResponseDto>> getAllRestaurants(Pageable pageable) {
+        PagedResponse<RestaurantResponseDto> restaurants =
+                restaurantService.getAllRestaurants(pageable);
         return ResponseEntity.ok(restaurants);
     }
 
@@ -64,7 +65,7 @@ public class RestaurantController {
         return ResponseEntity.ok(updated);
     }
 
-    @DeleteMapping
+    @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteRestaurant(
             @PathVariable(name = "id") Long id) {
         restaurantService.deleteRestaurant(id);

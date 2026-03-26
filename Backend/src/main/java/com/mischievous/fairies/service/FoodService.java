@@ -1,9 +1,8 @@
 package com.mischievous.fairies.service;
 
 import com.mischievous.fairies.controller.dtos.request.food.CreateFoodRequestDto;
-import com.mischievous.fairies.controller.dtos.request.food.DeleteFoodRequestDto;
-import com.mischievous.fairies.controller.dtos.request.food.GetFoodByIdRequestDto;
 import com.mischievous.fairies.controller.dtos.request.food.UpdateFoodRequestDto;
+import com.mischievous.fairies.controller.dtos.response.PagedResponse;
 import com.mischievous.fairies.controller.dtos.response.food.FoodResponseDto;
 import com.mischievous.fairies.persistence.model.AllergenEntity;
 import com.mischievous.fairies.persistence.model.FoodEntity;
@@ -12,8 +11,11 @@ import com.mischievous.fairies.persistence.repository.AllergenRepository;
 import com.mischievous.fairies.persistence.repository.FoodRepository;
 import com.mischievous.fairies.persistence.repository.FoodTagRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -42,10 +44,19 @@ public class FoodService {
         return toResponseDto(foodRepository.save(food));
     }
 
-    public List<FoodResponseDto> getAllFoods() {
-        return foodRepository.findAll().stream()
-                .map(this::toResponseDto)
-                .toList();
+    public PagedResponse<FoodResponseDto> getAllFoods(Pageable pageable) {
+        Page<FoodEntity> foods = foodRepository.findAll(pageable);
+        List<FoodResponseDto> dtos = new ArrayList<>();
+        for (FoodEntity food : foods) {
+            dtos.add(toResponseDto(food));
+        }
+        PagedResponse<FoodResponseDto> response = new PagedResponse<>();
+        response.setData(dtos);
+        response.setPage(foods.getNumber());
+        response.setSize(foods.getSize());
+        response.setTotal(foods.getTotalPages());
+        response.setTotalPages(foods.getTotalPages());
+        return response;
     }
 
     public FoodResponseDto getFoodById(Long id) {
