@@ -1,0 +1,106 @@
+package com.mischievous.fairies.service;
+
+import com.mischievous.fairies.controller.dtos.request.food.CreateFoodRequestDto;
+import com.mischievous.fairies.controller.dtos.request.food.DeleteFoodRequestDto;
+import com.mischievous.fairies.controller.dtos.request.food.GetFoodByIdRequestDto;
+import com.mischievous.fairies.controller.dtos.request.food.UpdateFoodRequestDto;
+import com.mischievous.fairies.controller.dtos.response.food.FoodResponseDto;
+import com.mischievous.fairies.persistence.model.AllergenEntity;
+import com.mischievous.fairies.persistence.model.FoodEntity;
+import com.mischievous.fairies.persistence.model.FoodTagEntity;
+import com.mischievous.fairies.persistence.repository.AllergenRepository;
+import com.mischievous.fairies.persistence.repository.FoodRepository;
+import com.mischievous.fairies.persistence.repository.FoodTagRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.Collections;
+import java.util.List;
+
+@Service
+public class FoodService {
+    private final FoodRepository foodRepository;
+    private final AllergenRepository allergenRepository;
+    private final FoodTagRepository foodTagRepository;
+
+    @Autowired
+    public FoodService(
+            FoodRepository foodRepository,
+            AllergenRepository allergenRepository,
+            FoodTagRepository foodTagRepository
+    ) {
+        this.foodRepository = foodRepository;
+        this.allergenRepository = allergenRepository;
+        this.foodTagRepository = foodTagRepository;
+    }
+
+    public FoodResponseDto createFood(CreateFoodRequestDto request) {
+        FoodEntity food = new FoodEntity();
+        food.setName(request.getName());
+        food.setAllergens(resolveAllergens(request.getAllergenIds()));
+        food.setFoodTags(resolveFoodTags(request.getFoodTagIds()));
+        return toResponseDto(foodRepository.save(food));
+    }
+
+    public List<FoodResponseDto> getAllFoods() {
+        return foodRepository.findAll().stream()
+                .map(this::toResponseDto)
+                .toList();
+    }
+
+    public FoodResponseDto getFoodById(GetFoodByIdRequestDto request) {
+        FoodEntity food = foodRepository.findById(request.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Food not found with id: " + request.getId()));
+        return toResponseDto(food);
+    }
+
+    public FoodResponseDto updateFood(UpdateFoodRequestDto request) {
+        FoodEntity existingFood = foodRepository.findById(request.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Food not found with id: " + request.getId()));
+
+        existingFood.setName(request.getName());
+        existingFood.setAllergens(resolveAllergens(request.getAllergenIds()));
+        existingFood.setFoodTags(resolveFoodTags(request.getFoodTagIds()));
+
+        return toResponseDto(foodRepository.save(existingFood));
+    }
+
+    public void deleteFood(DeleteFoodRequestDto request) {
+        FoodEntity existingFood = foodRepository.findById(request.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Food not found with id: " + request.getId()));
+        foodRepository.delete(existingFood);
+    }
+
+    private FoodResponseDto toResponseDto(FoodEntity food) {
+        FoodResponseDto dto = new FoodResponseDto();
+        dto.setId(food.getId());
+        dto.setName(food.getName());
+        dto.setAllergenIds(food.getAllergens().stream().map(AllergenEntity::getId).toList());
+        dto.setFoodTagIds(food.getFoodTags().stream().map(FoodTagEntity::getId).toList());
+        return dto;
+    }
+
+    private List<AllergenEntity> resolveAllergens(List<Long> allergenIds) {
+        if (allergenIds == null || allergenIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<AllergenEntity> allergens = allergenRepository.findAllById(allergenIds);
+        if (allergens.size() != allergenIds.size()) {
+            throw new IllegalArgumentException("One or more allergens were not found");
+        }
+        return allergens;
+    }
+
+    private List<FoodTagEntity> resolveFoodTags(List<Long> foodTagIds) {
+        if (foodTagIds == null || foodTagIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<FoodTagEntity> foodTags = foodTagRepository.findAllById(foodTagIds);
+        if (foodTags.size() != foodTagIds.size()) {
+            throw new IllegalArgumentException("One or more food tags were not found");
+        }
+        return foodTags;
+    }
+}

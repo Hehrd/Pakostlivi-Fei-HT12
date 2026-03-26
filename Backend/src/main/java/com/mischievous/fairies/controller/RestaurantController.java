@@ -1,0 +1,76 @@
+package com.mischievous.fairies.controller;
+
+import com.mischievous.fairies.controller.dtos.request.restaurant.CreateRestaurantRequestDto;
+import com.mischievous.fairies.controller.dtos.request.restaurant.DeleteRestaurantRequestDto;
+import com.mischievous.fairies.controller.dtos.request.restaurant.GetRestaurantByIdRequestDto;
+import com.mischievous.fairies.controller.dtos.request.restaurant.UpdateRestaurantRequestDto;
+import com.mischievous.fairies.controller.dtos.response.restaurant.RestaurantResponseDto;
+import com.mischievous.fairies.service.RestaurantService;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/restaurants")
+public class RestaurantController {
+
+    private final RestaurantService restaurantService;
+
+    @Autowired
+    public RestaurantController(RestaurantService restaurantService) {
+        this.restaurantService = restaurantService;
+    }
+
+    @PostMapping
+    public ResponseEntity<RestaurantResponseDto> createRestaurant(
+            @RequestBody CreateRestaurantRequestDto request) {
+
+        RestaurantResponseDto response =
+                restaurantService.createRestaurant(request);
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(response);
+    }
+
+    @GetMapping
+    public ResponseEntity<List<RestaurantResponseDto>> getAllRestaurants() {
+        List<RestaurantResponseDto> restaurants =
+                restaurantService.getAllRestaurants();
+
+        return ResponseEntity.ok(restaurants);
+    }
+
+    @PostMapping("/by-id")
+    public ResponseEntity<RestaurantResponseDto> getRestaurantById(
+            @RequestBody GetRestaurantByIdRequestDto request) {
+
+        RestaurantResponseDto restaurant =
+                restaurantService.getRestaurantById(request);
+
+        return ResponseEntity.ok(restaurant);
+    }
+
+    @PutMapping
+    public ResponseEntity<RestaurantResponseDto> updateRestaurant(
+            @RequestBody UpdateRestaurantRequestDto request) {
+
+        RestaurantResponseDto updated =
+                restaurantService.updateRestaurant(request);
+
+        return ResponseEntity.ok(updated);
+    }
+
+    @DeleteMapping
+    public ResponseEntity<Void> deleteRestaurant(
+            @RequestBody DeleteRestaurantRequestDto request) {
+
+        restaurantService.deleteRestaurant(request);
+
+        return ResponseEntity.noContent().build();
+    }
+}

@@ -1,16 +1,33 @@
 package com.mischievous.fairies.persistence.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
+import lombok.Data;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
+@Table
+@Data
 public class RestaurantEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    private AccountEntity account;
 
-    //private AccountEntity account;
+    @Column(nullable = false, length = 150)
+    private String name;
+
+    @Column(name = "google_maps_link", length = 500)
+    private String googleMapsLink;
+
+    @ManyToMany
+    @JoinTable(
+            name = "restaurant_foods",
+            joinColumns = @JoinColumn(name = "restaurant_id"),
+            inverseJoinColumns = @JoinColumn(name = "food_id")
+    )
+    private List<FoodEntity> foods = new ArrayList<>();
 }
