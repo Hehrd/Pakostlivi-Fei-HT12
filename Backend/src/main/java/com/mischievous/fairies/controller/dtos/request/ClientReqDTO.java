@@ -10,9 +10,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class ClientReqDTO {
     @NotBlank
-    private String FirstName;
+    private String firstName;
     @NotBlank
-    private String LastName;
+    private String lastName;
     @NotBlank
     private String profilePictureUrl;
 }
