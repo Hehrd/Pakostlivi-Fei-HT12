@@ -126,12 +126,16 @@ export default function SignUpPage() {
           transition={{ duration: 0.7, delay: 0.28, ease: "easeOut" }}
           className="pointer-events-none absolute right-10 top-24 z-10"
         >
-          <div className="animate-[float_7s_ease-in-out_infinite] rounded-[1.75rem] border border-white/20 bg-white/10 px-5 py-4 text-white shadow-[0_20px_45px_rgba(0,0,0,0.14)] backdrop-blur-md">
+          <motion.div
+            animate={{ y: [0, -10, 0] }}
+            transition={{ duration: 7, ease: "easeInOut", repeat: Infinity }}
+            className="rounded-[1.75rem] border border-white/20 bg-white/10 px-5 py-4 text-white shadow-[0_20px_45px_rgba(0,0,0,0.14)] backdrop-blur-md"
+          >
             <p className="text-[11px] uppercase tracking-[0.25em] text-white/65">
               New users today
             </p>
             <p className="mt-2 text-2xl font-semibold">248 joined</p>
-          </div>
+          </motion.div>
         </motion.div>
 
         <motion.div
@@ -140,9 +144,13 @@ export default function SignUpPage() {
           transition={{ duration: 0.7, delay: 0.36, ease: "easeOut" }}
           className="pointer-events-none absolute bottom-36 right-24 z-10"
         >
-          <div className="animate-[float_9s_ease-in-out_infinite] rounded-full border border-white/20 bg-white/10 px-5 py-3 text-sm font-medium text-white/88 shadow-[0_18px_40px_rgba(0,0,0,0.12)] backdrop-blur-md">
+          <motion.div
+            animate={{ y: [0, -10, 0] }}
+            transition={{ duration: 9, ease: "easeInOut", repeat: Infinity }}
+            className="rounded-full border border-white/20 bg-white/10 px-5 py-3 text-sm font-medium text-white/88 shadow-[0_18px_40px_rgba(0,0,0,0.12)] backdrop-blur-md"
+          >
             Wallet + pickup ready
-          </div>
+          </motion.div>
         </motion.div>
       </section>
 
@@ -270,10 +278,18 @@ export default function SignUpPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full rounded-2xl bg-primary px-4 py-3.5 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(31,143,87,0.24)] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:scale-[1.01] hover:bg-primary-strong hover:shadow-[0_24px_50px_rgba(31,143,87,0.28)] active:translate-y-0 active:scale-[0.995] focus:outline-none focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-80"
-            >
+              className="w-full rounded-2xl bg-primary px-4 py-3.5 text-sm font-semibold text-white cursor-pointer
+              shadow-[0_10px_25px_rgba(0,0,0,0.12),0_6px_20px_rgba(31,143,87,0.18)]
+              transform-gpu transition-transform duration-500 ease-out
+              hover:-translate-y-1 hover:scale-[1.02]
+              hover:bg-primary-strong
+              hover:shadow-[0_18px_40px_rgba(0,0,0,0.16),0_10px_35px_rgba(31,143,87,0.22)]
+              active:scale-[0.97]
+              focus:outline-none focus:ring-4 focus:ring-primary/15
+              disabled:cursor-not-allowed disabled:cursor-wait disabled:opacity-80">
               {isSubmitting ? "Creating account..." : "Create account"}
             </button>
+
           </form>
 
           <div className="relative mt-7 flex items-center justify-between gap-3 border-t border-border/60 pt-6 text-sm text-foreground/68">
