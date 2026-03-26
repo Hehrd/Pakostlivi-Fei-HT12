@@ -1,4 +1,4 @@
-package com.mischievous.fairies.controller.dtos.response;
+package com.mischievous.fairies.controller.dtos.response.user;
 
 import com.mischievous.fairies.auth.filter.AuthTokens;
 import jakarta.validation.constraints.NotBlank;

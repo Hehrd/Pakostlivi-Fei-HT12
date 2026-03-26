@@ -1,4 +1,4 @@
-package com.mischievous.fairies.controller.dtos.response;
+package com.mischievous.fairies.controller.dtos.response.exception;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

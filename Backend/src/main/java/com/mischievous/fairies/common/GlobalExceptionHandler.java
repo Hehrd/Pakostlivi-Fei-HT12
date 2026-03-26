@@ -1,6 +1,6 @@
 package com.mischievous.fairies.common;
 
-import com.mischievous.fairies.controller.dtos.response.ApiErrorResponse;
+import com.mischievous.fairies.controller.dtos.response.exception.ApiErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.dao.DataAccessException;

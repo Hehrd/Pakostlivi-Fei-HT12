@@ -8,5 +8,4 @@ public class MischievousFairies {
     public static void main(String[] args) {
         SpringApplication.run(MischievousFairies.class, args);
     }
-
 }

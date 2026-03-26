@@ -3,8 +3,8 @@ package com.mischievous.fairies.service;
 import com.mischievous.fairies.auth.filter.AuthTokens;
 import com.mischievous.fairies.common.exceptions.EmailAlreadyInUseException;
 import com.mischievous.fairies.common.exceptions.WrongCredentialsException;
-import com.mischievous.fairies.controller.dtos.request.UserReqLogInDTO;
-import com.mischievous.fairies.controller.dtos.request.UserReqSignUpDTO;
+import com.mischievous.fairies.controller.dtos.request.user.SignUpReqDTO;
+import com.mischievous.fairies.controller.dtos.request.user.UserReqLogInDTO;
 import com.mischievous.fairies.persistence.model.AccountEntity;
 import com.mischievous.fairies.persistence.repository.AccountRepository;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -31,7 +31,7 @@ public class AccountService {
     }
 
     @Transactional
-    public Map<String, Boolean> signUp(UserReqSignUpDTO userReqSignUpDTO) throws EmailAlreadyInUseException {
+    public Map<String, Boolean> signUp(SignUpReqDTO.UserReqSignUpDTO userReqSignUpDTO) throws EmailAlreadyInUseException {
         if (accountRepository.existsByEmail(userReqSignUpDTO.getEmail())) {
             throw new EmailAlreadyInUseException("Email is already in use");
         }
