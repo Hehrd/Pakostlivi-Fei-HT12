@@ -33,9 +33,9 @@ public class RestaurantService {
                 .toList();
     }
 
-    public RestaurantResponseDto getRestaurantById(GetRestaurantByIdRequestDto request) {
-        RestaurantEntity restaurant = restaurantRepository.findById(request.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Restaurant not found with id: " + request.getId()));
+    public RestaurantResponseDto getRestaurantById(Long id) {
+        RestaurantEntity restaurant = restaurantRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Restaurant not found with id: " + id));
         return toResponseDto(restaurant);
     }
 
@@ -48,9 +48,9 @@ public class RestaurantService {
         return toResponseDto(restaurantRepository.save(existingRestaurant));
     }
 
-    public void deleteRestaurant(DeleteRestaurantRequestDto request) {
-        RestaurantEntity existingRestaurant = restaurantRepository.findById(request.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Restaurant not found with id: " + request.getId()));
+    public void deleteRestaurant(Long id) {
+        RestaurantEntity existingRestaurant = restaurantRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Restaurant not found with id: " + id));
         restaurantRepository.delete(existingRestaurant);
     }
 
