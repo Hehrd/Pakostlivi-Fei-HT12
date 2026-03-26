@@ -41,11 +41,11 @@ public class FoodController {
         return ResponseEntity.ok(foods);
     }
 
-    @PostMapping("/by-id")
+    @GetMapping("/{id}")
     public ResponseEntity<FoodResponseDto> getFoodById(
-            @RequestBody GetFoodByIdRequestDto request) {
+            @PathVariable Long id) {
 
-        FoodResponseDto food = foodService.getFoodById(request);
+        FoodResponseDto food = foodService.getFoodById(id);
 
         return ResponseEntity.ok(food);
     }
@@ -59,11 +59,10 @@ public class FoodController {
         return ResponseEntity.ok(updated);
     }
 
-    @DeleteMapping
+    @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteFood(
-            @RequestBody DeleteFoodRequestDto request) {
-
-        foodService.deleteFood(request);
+            @PathVariable(name = "id") Long id) {
+        foodService.deleteFood(id);
 
         return ResponseEntity.noContent().build();
     }

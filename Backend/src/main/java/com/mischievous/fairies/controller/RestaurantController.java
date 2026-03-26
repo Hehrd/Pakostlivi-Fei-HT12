@@ -45,12 +45,11 @@ public class RestaurantController {
         return ResponseEntity.ok(restaurants);
     }
 
-    @PostMapping("/by-id")
-    public ResponseEntity<RestaurantResponseDto> getRestaurantById(
-            @RequestBody GetRestaurantByIdRequestDto request) {
+    @GetMapping("/{id}")
+    public ResponseEntity<RestaurantResponseDto> getRestaurantById(@PathVariable(name = "id") Long id) {
 
         RestaurantResponseDto restaurant =
-                restaurantService.getRestaurantById(request);
+                restaurantService.getRestaurantById(id);
 
         return ResponseEntity.ok(restaurant);
     }
@@ -67,10 +66,8 @@ public class RestaurantController {
 
     @DeleteMapping
     public ResponseEntity<Void> deleteRestaurant(
-            @RequestBody DeleteRestaurantRequestDto request) {
-
-        restaurantService.deleteRestaurant(request);
-
+            @PathVariable(name = "id") Long id) {
+        restaurantService.deleteRestaurant(id);
         return ResponseEntity.noContent().build();
     }
 }

@@ -48,9 +48,9 @@ public class FoodService {
                 .toList();
     }
 
-    public FoodResponseDto getFoodById(GetFoodByIdRequestDto request) {
-        FoodEntity food = foodRepository.findById(request.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Food not found with id: " + request.getId()));
+    public FoodResponseDto getFoodById(Long id) {
+        FoodEntity food = foodRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Food not found with id: " + id));
         return toResponseDto(food);
     }
 
@@ -65,9 +65,9 @@ public class FoodService {
         return toResponseDto(foodRepository.save(existingFood));
     }
 
-    public void deleteFood(DeleteFoodRequestDto request) {
-        FoodEntity existingFood = foodRepository.findById(request.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Food not found with id: " + request.getId()));
+    public void deleteFood(Long id) {
+        FoodEntity existingFood = foodRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Food not found with id: " + id));
         foodRepository.delete(existingFood);
     }
 

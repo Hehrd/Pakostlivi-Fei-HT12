@@ -68,7 +68,7 @@ public class GlobalExceptionHandler {
                 Instant.now(),
                 HttpStatus.BAD_REQUEST.value(),
                 HttpStatus.BAD_REQUEST.getReasonPhrase(),
-                "Malformed JSON request",
+                e.getMessage(),
                 request.getRequestURI()
         );
 
@@ -86,7 +86,7 @@ public class GlobalExceptionHandler {
                 Instant.now(),
                 HttpStatus.BAD_REQUEST.value(),
                 HttpStatus.BAD_REQUEST.getReasonPhrase(),
-                "Database operation failed",
+                e.getMessage(),
                 request.getRequestURI()
         );
 
@@ -104,7 +104,7 @@ public class GlobalExceptionHandler {
                 Instant.now(),
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
-                "Something went wrong",
+                e.getMessage(),
                 request.getRequestURI()
         );
 
