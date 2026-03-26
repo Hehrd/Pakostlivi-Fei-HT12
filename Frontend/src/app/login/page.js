@@ -106,12 +106,16 @@ export default function LoginPage() {
           transition={{ duration: 0.7, delay: 0.28, ease: "easeOut" }}
           className="pointer-events-none absolute right-10 top-24 z-10"
         >
-          <div className="animate-[float_7s_ease-in-out_infinite] rounded-[1.75rem] border border-white/20 bg-white/10 px-5 py-4 text-white shadow-[0_20px_45px_rgba(0,0,0,0.14)] backdrop-blur-md">
+          <motion.div
+            animate={{ y: [0, -10, 0] }}
+            transition={{ duration: 7, ease: "easeInOut", repeat: Infinity }}
+            className="rounded-[1.75rem] border border-white/20 bg-white/10 px-5 py-4 text-white shadow-[0_20px_45px_rgba(0,0,0,0.14)] backdrop-blur-md"
+          >
             <p className="text-[11px] uppercase tracking-[0.25em] text-white/65">
               Saved today
             </p>
             <p className="mt-2 text-2xl font-semibold">124 meals</p>
-          </div>
+          </motion.div>
         </motion.div>
 
         <motion.div
@@ -120,9 +124,13 @@ export default function LoginPage() {
           transition={{ duration: 0.7, delay: 0.36, ease: "easeOut" }}
           className="pointer-events-none absolute bottom-36 right-24 z-10"
         >
-          <div className="animate-[float_9s_ease-in-out_infinite] rounded-full border border-white/20 bg-white/10 px-5 py-3 text-sm font-medium text-white/88 shadow-[0_18px_40px_rgba(0,0,0,0.12)] backdrop-blur-md">
+          <motion.div
+            animate={{ y: [0, -10, 0] }}
+            transition={{ duration: 9, ease: "easeInOut", repeat: Infinity }}
+            className="rounded-full border border-white/20 bg-white/10 px-5 py-3 text-sm font-medium text-white/88 shadow-[0_18px_40px_rgba(0,0,0,0.12)] backdrop-blur-md"
+          >
             Pickup ready
-          </div>
+          </motion.div>
         </motion.div>
       </section>
 
@@ -199,25 +207,21 @@ export default function LoginPage() {
               </div>
             </label>
 
-           <button
-             type="submit"
+            <motion.button
+              type="submit"
               disabled={isSubmitting}
-              className="group relative w-full overflow-hidden rounded-2xl bg-primary/90 backdrop-blur-md border border-white/20 px-4 py-3.5 text-sm font-semibold text-white cursor-pointer 
-              shadow-[0_10px_25px_rgba(0,0,0,0.12),0_6px_20px_rgba(31,143,87,0.18)]
-              transform-gpu transition-transform duration-500 ease-out
-              hover:-translate-y-1 hover:scale-[1.02]
-              hover:shadow-[0_18px_40px_rgba(0,0,0,0.16),0_10px_35px_rgba(31,143,87,0.22)]
-              active:scale-[0.97] 
-              focus:outline-none focus:ring-4 focus:ring-primary/15 
-              disabled:cursor-not-allowed disabled:opacity-80 disabled:cursor-wait">
-              <span className="pointer-events-none absolute inset-0">
-              <span className="absolute -left-1/2 top-0 h-full w-1/2 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 transition-all duration-1000 ease-out group-hover:translate-x-[180%] group-hover:opacity-50" />
-             </span>
-             <span className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-30 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.10),transparent_75%)]" />
+              whileHover={isSubmitting ? undefined : { y: -3 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+              className="group relative w-full overflow-hidden rounded-2xl border border-white/20 bg-primary px-4 py-3.5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(31,143,87,0.22)] transition-[background-color,box-shadow] duration-300 ease-out hover:bg-primary-strong hover:shadow-[0_18px_40px_rgba(31,143,87,0.28)] focus:outline-none focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-80"
+            >
+              <span className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
+                <span className="absolute -left-1/2 top-0 h-full w-1/2 bg-gradient-to-r from-transparent via-white/25 to-transparent opacity-0 transition-all duration-700 ease-out group-hover:translate-x-[180%] group-hover:opacity-100" />
+                <span className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.16),transparent_72%)] opacity-0 transition-opacity duration-300 ease-out group-hover:opacity-100" />
+              </span>
               <span className="relative z-10">
-              {isSubmitting ? "Redirecting..." : "Log in"}
-             </span>
-          </button>
+                {isSubmitting ? "Redirecting..." : "Log in"}
+              </span>
+            </motion.button>
 
 
 

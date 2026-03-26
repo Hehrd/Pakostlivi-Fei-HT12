@@ -45,7 +45,6 @@ body {
 }
 
 a,
-button,
 input {
   transition:
     color 150ms ease,
@@ -58,15 +57,4 @@ input {
 ::selection {
   background: rgba(31, 143, 87, 0.18);
   color: var(--foreground);
-}
-
-
-@keyframes float {
-  0%,
-  100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
 }

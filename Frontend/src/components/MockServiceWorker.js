@@ -20,12 +20,17 @@ export default function MockServiceWorker({ children }) {
 
       const { worker } = await import("@/mocks/browser");
 
-      await worker.start({
-        onUnhandledRequest: "bypass",
-        serviceWorker: {
-          url: "/mockServiceWorker.js",
-        },
-      });
+      try {
+        await worker.start({
+          onUnhandledRequest: "bypass",
+          serviceWorker: {
+            url: "/mockServiceWorker.js",
+          },
+        });
+      } catch (error) {
+        console.error("MSW failed to start in mock mode.", error);
+        throw error;
+      }
 
       if (isMounted) {
         setIsReady(true);
