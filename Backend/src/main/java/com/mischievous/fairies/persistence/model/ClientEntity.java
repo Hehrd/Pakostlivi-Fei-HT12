@@ -18,10 +18,10 @@ public class ClientEntity {
     @Column(nullable = false)
     private String lastname;
 
-    @Column(nullable = false)
+    @Column()
     private String profilePictureUrl;
 
-    @OneToOne(cascade = CascadeType.ALL, optional = false)
+    @OneToOne(optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     private AccountEntity account;
 }

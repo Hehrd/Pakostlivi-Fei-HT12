@@ -4,9 +4,8 @@ import com.mischievous.fairies.auth.filter.AuthTokens;
 import com.mischievous.fairies.auth.filter.AuthenticatedUser;
 import com.mischievous.fairies.common.exceptions.EmailAlreadyInUseException;
 import com.mischievous.fairies.common.exceptions.WrongCredentialsException;
-import com.mischievous.fairies.controller.dtos.request.ClientReqDTO;
+import com.mischievous.fairies.controller.dtos.request.SignUpReqDTO;
 import com.mischievous.fairies.controller.dtos.request.UserReqLogInDTO;
-import com.mischievous.fairies.controller.dtos.request.UserReqSignUpDTO;
 import com.mischievous.fairies.controller.dtos.response.ClientResDTO;
 import com.mischievous.fairies.controller.dtos.response.CurrentUserDTO;
 import com.mischievous.fairies.service.AuthCookieService;
@@ -44,9 +43,9 @@ public class UserAccountController {
     }
 
     @PostMapping("/signup")
-    public ResponseEntity<Map<String, Boolean>> signUp(@Valid @RequestBody UserReqSignUpDTO userReqSignUpDTO, ClientReqDTO clientReqDTO) throws EmailAlreadyInUseException {
-        Map<String, Boolean> response = accountService.signUp(userReqSignUpDTO);
-        clientService.saveUser(clientReqDTO, userReqSignUpDTO.getEmail());
+    public ResponseEntity<Map<String, Boolean>> signUp(@Valid @RequestBody SignUpReqDTO signUpReqDTO) throws EmailAlreadyInUseException {
+        Map<String, Boolean> response = accountService.signUp(signUpReqDTO.getUser());
+        clientService.saveUser(signUpReqDTO.getClient(), signUpReqDTO.getUser().getEmail());
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
