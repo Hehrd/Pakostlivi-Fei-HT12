@@ -4,9 +4,11 @@ import com.mischievous.fairies.controller.dtos.request.food.CreateFoodRequestDto
 import com.mischievous.fairies.controller.dtos.request.food.DeleteFoodRequestDto;
 import com.mischievous.fairies.controller.dtos.request.food.GetFoodByIdRequestDto;
 import com.mischievous.fairies.controller.dtos.request.food.UpdateFoodRequestDto;
+import com.mischievous.fairies.controller.dtos.response.PagedResponse;
 import com.mischievous.fairies.controller.dtos.response.food.FoodResponseDto;
 import com.mischievous.fairies.service.FoodService;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -35,9 +37,8 @@ public class FoodController {
     }
 
     @GetMapping
-    public ResponseEntity<List<FoodResponseDto>> getAllFoods() {
-        List<FoodResponseDto> foods = foodService.getAllFoods();
-
+    public ResponseEntity<PagedResponse<FoodResponseDto>> getAllFoods(Pageable pageable) {
+        PagedResponse<FoodResponseDto> foods = foodService.getAllFoods(pageable);
         return ResponseEntity.ok(foods);
     }
 

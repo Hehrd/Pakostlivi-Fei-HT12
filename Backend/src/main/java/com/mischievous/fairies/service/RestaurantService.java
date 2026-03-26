@@ -4,12 +4,16 @@ import com.mischievous.fairies.controller.dtos.request.restaurant.CreateRestaura
 import com.mischievous.fairies.controller.dtos.request.restaurant.DeleteRestaurantRequestDto;
 import com.mischievous.fairies.controller.dtos.request.restaurant.GetRestaurantByIdRequestDto;
 import com.mischievous.fairies.controller.dtos.request.restaurant.UpdateRestaurantRequestDto;
+import com.mischievous.fairies.controller.dtos.response.PagedResponse;
 import com.mischievous.fairies.controller.dtos.response.restaurant.RestaurantResponseDto;
 import com.mischievous.fairies.persistence.model.RestaurantEntity;
 import com.mischievous.fairies.persistence.repository.RestaurantRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -27,10 +31,19 @@ public class RestaurantService {
         return toResponseDto(restaurantRepository.save(restaurant));
     }
 
-    public List<RestaurantResponseDto> getAllRestaurants() {
-        return restaurantRepository.findAll().stream()
-                .map(this::toResponseDto)
-                .toList();
+    public PagedResponse<RestaurantResponseDto> getAllRestaurants(Pageable pageable) {
+        Page<RestaurantEntity> entities = restaurantRepository.findAll(pageable);
+        List<RestaurantResponseDto> dtos = new ArrayList<>();
+        for (RestaurantEntity entity : entities.getContent()) {
+            dtos.add(toResponseDto(entity));
+        }
+        PagedResponse<RestaurantResponseDto> response = new PagedResponse<>();
+        response.setData(dtos);
+        response.setPage(entities.getNumber());
+        response.setSize(entities.getSize());
+        response.setTotal(entities.getNumberOfElements());
+        response.setTotalPages(entities.getTotalPages());
+        return response;
     }
 
     public RestaurantResponseDto getRestaurantById(Long id) {
