@@ -37,7 +37,7 @@ public class JwtEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
-    private UserAccountEntity userAccount;
+    private AccountEntity userAccount;
 
     @PrePersist
     public void prePersist() {

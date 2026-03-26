@@ -5,7 +5,7 @@ import com.mischievous.fairies.auth.RefreshTokenHasher;
 import com.mischievous.fairies.auth.filter.AuthTokens;
 import com.mischievous.fairies.common.exceptions.WrongCredentialsException;
 import com.mischievous.fairies.persistence.model.JwtEntity;
-import com.mischievous.fairies.persistence.model.UserAccountEntity;
+import com.mischievous.fairies.persistence.model.AccountEntity;
 import com.mischievous.fairies.persistence.repository.JwtRepository;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -67,7 +67,7 @@ public class JwtService {
     }
 
     @Transactional
-    public void revokeAllUserTokens(UserAccountEntity user) {
+    public void revokeAllUserTokens(AccountEntity user) {
         List<JwtEntity> activeTokens = jwtRepository.findAllByUserAccountAndRevokedFalse(user);
 
         for (JwtEntity token : activeTokens) {
@@ -78,7 +78,7 @@ public class JwtService {
     }
 
     @Transactional
-    public void saveRefreshToken(String rawRefreshToken, UserAccountEntity user) {
+    public void saveRefreshToken(String rawRefreshToken, AccountEntity user) {
         Claims claims = jwtValidation.parseClaims(rawRefreshToken);
 
         JwtEntity entity = new JwtEntity();
@@ -120,7 +120,7 @@ public class JwtService {
         storedToken.setRevoked(true);
         jwtRepository.save(storedToken);
 
-        UserAccountEntity user = storedToken.getUserAccount();
+        AccountEntity user = storedToken.getUserAccount();
 
         String newAccessToken = generateAccessToken(user.getId(), user.getEmail());
         String newRefreshToken = generateRefreshToken(user.getId());

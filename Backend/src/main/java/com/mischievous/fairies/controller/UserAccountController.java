@@ -37,10 +37,7 @@ public class UserAccountController {
 
     @PostMapping("/signup")
     public ResponseEntity<Void> signUp(@Valid @RequestBody UserSignUpDTO userSignUpDTO, HttpServletResponse response) throws EmailAlreadyInUseException {
-        AuthTokens tokens = userAccountService.signUp(userSignUpDTO);
-
-        authCookieService.addAccessTokenCookie(response, tokens.accessToken());
-        authCookieService.addRefreshTokenCookie(response, tokens.refreshToken());
+        userAccountService.signUp(userSignUpDTO);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
