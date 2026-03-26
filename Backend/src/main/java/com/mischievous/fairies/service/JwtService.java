@@ -7,6 +7,7 @@ import com.mischievous.fairies.common.exceptions.WrongCredentialsException;
 import com.mischievous.fairies.persistence.model.JwtEntity;
 import com.mischievous.fairies.persistence.model.AccountEntity;
 import com.mischievous.fairies.persistence.repository.JwtRepository;
+import com.mischievous.fairies.persistence.status.AccountRole;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import org.springframework.stereotype.Service;
@@ -41,12 +42,13 @@ public class JwtService {
         this.key = key;
     }
 
-    public String generateAccessToken(Integer userId, String email) {
+    public String generateAccessToken(Integer userId, String email, AccountRole accountRole) {
         long now = System.currentTimeMillis();
 
         return Jwts.builder()
                 .setSubject(String.valueOf(userId))
                 .claim("email", email)
+                .claim("role", accountRole)
                 .setIssuedAt(new Date(now))
                 .setExpiration(new Date(now + ACCESS_EXPIRATION_MS))
                 .setId(UUID.randomUUID().toString())
@@ -122,7 +124,9 @@ public class JwtService {
 
         AccountEntity user = storedToken.getUserAccount();
 
-        String newAccessToken = generateAccessToken(user.getId(), user.getEmail());
+        String newAccessToken = generateAccessToken(user.getId(),
+                                                    user.getEmail(),
+                                                    user.getRole());
         String newRefreshToken = generateRefreshToken(user.getId());
 
         saveRefreshToken(newRefreshToken, user);

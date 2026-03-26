@@ -1,8 +1,5 @@
 import { http, HttpResponse } from "msw";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:6969";
-
 function buildUser(overrides = {}) {
   return {
     id: 1,
@@ -15,7 +12,7 @@ function buildUser(overrides = {}) {
 }
 
 export const handlers = [
-  http.post(`${API_BASE_URL}/account/login`, async ({ request }) => {
+  http.post("*/account/login", async ({ request }) => {
     const body = await request.json();
     const email = body?.email?.trim() || "a@a.a";
 
@@ -33,7 +30,7 @@ export const handlers = [
     );
   }),
 
-  http.post(`${API_BASE_URL}/account/signup`, async ({ request }) => {
+  http.post("*/account/signup", async ({ request }) => {
     const body = await request.json();
     const email = body?.email?.trim() || "foodlover@munchmun.com";
     const username = body?.username?.trim() || "savefoodhero";
@@ -53,7 +50,7 @@ export const handlers = [
     );
   }),
 
-  http.get(`${API_BASE_URL}/users/me`, async () => {
+  http.get("*/users/me", async () => {
     return HttpResponse.json(buildUser());
   }),
 ];

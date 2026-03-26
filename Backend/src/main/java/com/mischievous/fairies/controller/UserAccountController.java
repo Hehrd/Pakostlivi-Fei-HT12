@@ -1,15 +1,17 @@
 package com.mischievous.fairies.controller;
 
-
 import com.mischievous.fairies.auth.filter.AuthTokens;
 import com.mischievous.fairies.auth.filter.AuthenticatedUser;
 import com.mischievous.fairies.common.exceptions.EmailAlreadyInUseException;
 import com.mischievous.fairies.common.exceptions.WrongCredentialsException;
-import com.mischievous.fairies.controller.dtos.request.UserLogInDTO;
-import com.mischievous.fairies.controller.dtos.request.UserSignUpDTO;
+import com.mischievous.fairies.controller.dtos.request.ClientReqDTO;
+import com.mischievous.fairies.controller.dtos.request.UserReqLogInDTO;
+import com.mischievous.fairies.controller.dtos.request.UserReqSignUpDTO;
+import com.mischievous.fairies.controller.dtos.response.ClientResDTO;
 import com.mischievous.fairies.controller.dtos.response.CurrentUserDTO;
 import com.mischievous.fairies.service.AuthCookieService;
-import com.mischievous.fairies.service.UserAccountService;
+import com.mischievous.fairies.service.AccountService;
+import com.mischievous.fairies.service.ClientService;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -17,16 +19,22 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/account")
 public class UserAccountController {
 
-    private final UserAccountService userAccountService;
+    private final AccountService accountService;
     private final AuthCookieService authCookieService;
+    private final ClientService clientService;
 
-    public UserAccountController(UserAccountService userAccountService, AuthCookieService authCookieService) {
-        this.userAccountService = userAccountService;
+    public UserAccountController(AccountService accountService,
+                                 AuthCookieService authCookieService,
+                                 ClientService clientService) {
+        this.accountService = accountService;
         this.authCookieService = authCookieService;
+        this.clientService = clientService;
     }
 
     @GetMapping("/me")
@@ -36,29 +44,31 @@ public class UserAccountController {
     }
 
     @PostMapping("/signup")
-    public ResponseEntity<Void> signUp(@Valid @RequestBody UserSignUpDTO userSignUpDTO, HttpServletResponse response) throws EmailAlreadyInUseException {
-        userAccountService.signUp(userSignUpDTO);
+    public ResponseEntity<Map<String, Boolean>> signUp(@Valid @RequestBody UserReqSignUpDTO userReqSignUpDTO, ClientReqDTO clientReqDTO) throws EmailAlreadyInUseException {
+        Map<String, Boolean> response = accountService.signUp(userReqSignUpDTO);
+        clientService.saveUser(clientReqDTO, userReqSignUpDTO.getEmail());
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .build();
+                .body(response);
     }
 
     @PostMapping("/login")
-    public ResponseEntity<Void> logIn(@Valid @RequestBody UserLogInDTO userLogInDTO, HttpServletResponse response) throws WrongCredentialsException {
-        AuthTokens tokens = userAccountService.logIn(userLogInDTO);
+    public ResponseEntity<ClientResDTO> logIn(@Valid @RequestBody UserReqLogInDTO userReqLogInDTO, HttpServletResponse response) throws WrongCredentialsException {
+        AuthTokens tokens = accountService.logIn(userReqLogInDTO);
 
         authCookieService.addAccessTokenCookie(response, tokens.accessToken());
         authCookieService.addRefreshTokenCookie(response, tokens.refreshToken());
+        ClientResDTO clientResDTO = clientService.getClientByEmail(userReqLogInDTO.getEmail());
 
         return ResponseEntity
                 .ok()
-                .build();
+                .body(clientResDTO);
     }
 
     @PostMapping("/logout")
     public ResponseEntity<Void> logOut(@CookieValue(name = "refresh_token", required = false) String refreshToken, HttpServletResponse response) {
-        userAccountService.logOut(refreshToken);
+        accountService.logOut(refreshToken);
         authCookieService.clearCookies(response);
 
         return ResponseEntity
