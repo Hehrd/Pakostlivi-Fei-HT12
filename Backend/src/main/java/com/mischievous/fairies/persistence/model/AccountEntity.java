@@ -14,7 +14,7 @@ import java.time.Instant;
 public class AccountEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Long id;
 
     @Column(nullable = false, unique = true, length = 255)
     @NotBlank

@@ -29,6 +29,4 @@ public class FoodSaleEntity {
 
     @Column
     private Date expiresAt;
-
-
 }

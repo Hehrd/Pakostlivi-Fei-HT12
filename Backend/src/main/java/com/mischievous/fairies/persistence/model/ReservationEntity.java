@@ -20,6 +20,10 @@ public class ReservationEntity {
     private Instant expires_at;
 
     @ManyToOne
-    @JoinColumn(name = "restaurant_id", nullable = false)
-    private RestaurantEntity restaurantEntity;
+    @JoinColumn(name = "food_sale_id", nullable = false)
+    private FoodSaleEntity foodSaleEntity;
+
+    @ManyToOne
+    @JoinColumn(name = "client_id", nullable = false)
+    private ClientEntity clientEntity;
 }
