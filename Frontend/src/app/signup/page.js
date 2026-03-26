@@ -270,10 +270,18 @@ export default function SignUpPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full rounded-2xl bg-primary px-4 py-3.5 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(31,143,87,0.24)] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:scale-[1.01] hover:bg-primary-strong hover:shadow-[0_24px_50px_rgba(31,143,87,0.28)] active:translate-y-0 active:scale-[0.995] focus:outline-none focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-80"
-            >
+              className="w-full rounded-2xl bg-primary px-4 py-3.5 text-sm font-semibold text-white cursor-pointer
+              shadow-[0_10px_25px_rgba(0,0,0,0.12),0_6px_20px_rgba(31,143,87,0.18)]
+              transform-gpu transition-transform duration-500 ease-out
+              hover:-translate-y-1 hover:scale-[1.02]
+              hover:bg-primary-strong
+              hover:shadow-[0_18px_40px_rgba(0,0,0,0.16),0_10px_35px_rgba(31,143,87,0.22)]
+              active:scale-[0.97]
+              focus:outline-none focus:ring-4 focus:ring-primary/15
+              disabled:cursor-not-allowed disabled:cursor-wait disabled:opacity-80">
               {isSubmitting ? "Creating account..." : "Create account"}
             </button>
+
           </form>
 
           <div className="relative mt-7 flex items-center justify-between gap-3 border-t border-border/60 pt-6 text-sm text-foreground/68">

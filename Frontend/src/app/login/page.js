@@ -199,13 +199,31 @@ export default function LoginPage() {
               </div>
             </label>
 
-            <button
-              type="submit"
+           <button
+             type="submit"
               disabled={isSubmitting}
-              className="w-full rounded-2xl bg-primary px-4 py-3.5 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(31,143,87,0.24)] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:scale-[1.01] hover:bg-primary-strong hover:shadow-[0_24px_50px_rgba(31,143,87,0.28)] active:translate-y-0 active:scale-[0.995] focus:outline-none focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-80"
-            >
+              className="group relative w-full overflow-hidden rounded-2xl bg-primary/90 backdrop-blur-md border border-white/20 px-4 py-3.5 text-sm font-semibold text-white cursor-pointer 
+              shadow-[0_10px_25px_rgba(0,0,0,0.12),0_6px_20px_rgba(31,143,87,0.18)]
+              transform-gpu transition-transform duration-500 ease-out
+              hover:-translate-y-1 hover:scale-[1.02]
+              hover:shadow-[0_18px_40px_rgba(0,0,0,0.16),0_10px_35px_rgba(31,143,87,0.22)]
+              active:scale-[0.97] 
+              focus:outline-none focus:ring-4 focus:ring-primary/15 
+              disabled:cursor-not-allowed disabled:opacity-80 disabled:cursor-wait">
+              <span className="pointer-events-none absolute inset-0">
+              <span className="absolute -left-1/2 top-0 h-full w-1/2 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 transition-all duration-1000 ease-out group-hover:translate-x-[180%] group-hover:opacity-50" />
+             </span>
+             <span className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-30 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.10),transparent_75%)]" />
+              <span className="relative z-10">
               {isSubmitting ? "Redirecting..." : "Log in"}
-            </button>
+             </span>
+          </button>
+
+
+
+
+
+
           </form>
 
           <div className="relative mt-7 flex items-center justify-between gap-3 border-t border-border/60 pt-6 text-sm text-foreground/68">
