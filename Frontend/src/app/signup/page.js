@@ -2,12 +2,17 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { queueRedirectToast } from "@/components/AppToaster";
+import AuthSubmitButton from "@/components/AuthSubmitButton";
 import { getAuthToastContent, signup } from "@/lib/auth-client";
 
 export default function SignUpPage() {
-  const [username, setUsername] = useState("");
+  const router = useRouter();
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -15,11 +20,17 @@ export default function SignUpPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  function buildProfilePictureUrl() {
+    const seed = encodeURIComponent(`${firstName.trim()} ${lastName.trim()}`);
+    return `https://api.dicebear.com/9.x/initials/svg?seed=${seed}`;
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
 
     if (
-      !username.trim() ||
+      !firstName.trim() ||
+      !lastName.trim() ||
       !email.trim() ||
       !password.trim() ||
       !confirmPassword.trim()
@@ -37,25 +48,36 @@ export default function SignUpPage() {
       return;
     }
 
+    if (password.length < 8) {
+      toast.error("Password is too short.", {
+        description: "Use at least 8 characters to match the backend rules.",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       await signup({
-        username: username.trim(),
-        email: email.trim(),
-        password,
+        user: {
+          email: email.trim(),
+          password,
+          role: "CLIENT",
+        },
+        client: {
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          profilePictureUrl: buildProfilePictureUrl(),
+        },
       });
 
-      toast.success("Account created.", {
-        description:
-          "Your account has been created.",
+      queueRedirectToast({
+        type: "success",
+        title: "Account created.",
+        description: "Log in with your new account to continue.",
       });
 
-      setUsername("");
-      setEmail("");
-      setPassword("");
-      setConfirmPassword("");
-      setIsSubmitting(false);
+      router.push("/login");
     } catch (error) {
       const toastContent = getAuthToastContent(error, "signup");
 
@@ -102,8 +124,8 @@ export default function SignUpPage() {
             </h1>
 
             <p className="max-w-[33rem] text-lg leading-8 text-white/80">
-              Join local users who reserve surplus meals, pay securely through
-              their wallet, and collect orders with a pickup code.
+              Join local users who reserve surplus meals, manage their food
+              preferences, and collect reserved meals with confidence.
             </p>
           </div>
         </motion.div>
@@ -149,7 +171,7 @@ export default function SignUpPage() {
             transition={{ duration: 9, ease: "easeInOut", repeat: Infinity }}
             className="rounded-full border border-white/20 bg-white/10 px-5 py-3 text-sm font-medium text-white/88 shadow-[0_18px_40px_rgba(0,0,0,0.12)] backdrop-blur-md"
           >
-            Wallet + pickup ready
+            Preferences ready
           </motion.div>
         </motion.div>
       </section>
@@ -174,8 +196,8 @@ export default function SignUpPage() {
               </h2>
 
               <p className="text-sm leading-7 text-foreground/68">
-                Set up your profile to reserve discounted meals and pay through
-                your in-app wallet.
+                Set up your profile to reserve discounted meals and tailor your
+                browsing preferences.
               </p>
             </div>
           </div>
@@ -183,17 +205,34 @@ export default function SignUpPage() {
           <form className="relative space-y-5" onSubmit={handleSubmit}>
             <label className="block space-y-2.5">
               <span className="text-sm font-medium text-foreground/82">
-                Username
+                First name
               </span>
 
               <input
-                id="username"
-                name="username"
+                id="firstName"
+                name="firstName"
                 type="text"
-                value={username}
-                onChange={(event) => setUsername(event.target.value)}
-                placeholder="savefoodhero"
-                autoComplete="username"
+                value={firstName}
+                onChange={(event) => setFirstName(event.target.value)}
+                placeholder="Anna"
+                autoComplete="given-name"
+                className="w-full rounded-2xl border border-border/80 bg-surface-muted/80 px-4 py-3.5 text-sm text-foreground outline-none placeholder:text-foreground/40 transition-all duration-200 focus:-translate-y-[1px] focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
+              />
+            </label>
+
+            <label className="block space-y-2.5">
+              <span className="text-sm font-medium text-foreground/82">
+                Last name
+              </span>
+
+              <input
+                id="lastName"
+                name="lastName"
+                type="text"
+                value={lastName}
+                onChange={(event) => setLastName(event.target.value)}
+                placeholder="Petrova"
+                autoComplete="family-name"
                 className="w-full rounded-2xl border border-border/80 bg-surface-muted/80 px-4 py-3.5 text-sm text-foreground outline-none placeholder:text-foreground/40 transition-all duration-200 focus:-translate-y-[1px] focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
               />
             </label>
@@ -275,20 +314,13 @@ export default function SignUpPage() {
               </div>
             </label>
 
-            <button
-              type="submit"
+            <AuthSubmitButton
               disabled={isSubmitting}
-              className="w-full rounded-2xl bg-primary px-4 py-3.5 text-sm font-semibold text-white cursor-pointer
-              shadow-[0_10px_25px_rgba(0,0,0,0.12),0_6px_20px_rgba(31,143,87,0.18)]
-              transform-gpu transition-transform duration-500 ease-out
-              hover:-translate-y-1 hover:scale-[1.02]
-              hover:bg-primary-strong
-              hover:shadow-[0_18px_40px_rgba(0,0,0,0.16),0_10px_35px_rgba(31,143,87,0.22)]
-              active:scale-[0.97]
-              focus:outline-none focus:ring-4 focus:ring-primary/15
-              disabled:cursor-not-allowed disabled:cursor-wait disabled:opacity-80">
-              {isSubmitting ? "Creating account..." : "Create account"}
-            </button>
+              isLoading={isSubmitting}
+              loadingLabel="Creating account..."
+            >
+              Create account
+            </AuthSubmitButton>
 
           </form>
 

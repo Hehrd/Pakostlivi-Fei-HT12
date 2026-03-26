@@ -6,12 +6,16 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { queueRedirectToast } from "@/components/AppToaster";
+import { useAuth } from "@/components/AuthProvider";
+import AuthSubmitButton from "@/components/AuthSubmitButton";
 import { getAuthToastContent, login } from "@/lib/auth-client";
+import { isAdminUser, isRestaurantUser, mergeAuthUsers } from "@/lib/auth-user";
 
 const NEXT_ROUTE = "/";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { refreshUser, setCurrentUser } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -23,10 +27,50 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      await login({
+      const authPayload = await login({
         email: email.trim(),
         password,
       });
+      const authUserSeed = mergeAuthUsers(authPayload, {
+        email: email.trim(),
+      });
+
+      setCurrentUser(authUserSeed);
+
+      const nextUser = await refreshUser(authUserSeed);
+
+      if (isAdminUser(nextUser)) {
+        queueRedirectToast({
+          type: "success",
+          title: "Admin login successful.",
+          description: "Opening restaurant management.",
+        });
+
+        router.push("/admin/restaurants");
+        return;
+      }
+
+      if (isRestaurantUser(nextUser)) {
+        queueRedirectToast({
+          type: "success",
+          title: "Restaurant login successful.",
+          description: "Opening your restaurant listings and reservations.",
+        });
+
+        router.push("/restaurant/listings");
+        return;
+      }
+
+      if (nextUser?.hasOnboarded === false) {
+        queueRedirectToast({
+          type: "success",
+          title: "Login successful.",
+          description: "Finish onboarding to set your allergen preferences.",
+        });
+
+        router.push("/onboarding");
+        return;
+      }
 
       queueRedirectToast({
         type: "success",
@@ -82,8 +126,8 @@ export default function LoginPage() {
             </h1>
 
             <p className="max-w-[33rem] text-lg leading-8 text-white/80">
-              Check nearby surplus meals, pay with your wallet, and keep your
-              pickup codes ready when it is time to collect your order.
+              Check nearby surplus meals, manage your preferences, and stay
+              ready for quick pickup when it is time to collect your order.
             </p>
           </div>
         </motion.div>
@@ -95,8 +139,8 @@ export default function LoginPage() {
           className="relative z-10 max-w-[54rem] rounded-[2rem] border border-white/15 bg-white/10 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.12)] backdrop-blur-md"
         >
           <p className="text-sm leading-7 text-white/82">
-            One account gives you quick access to available offers, wallet
-            balance, orders, and pickup details in one place.
+            One account gives you quick access to available offers, account
+            preferences, and pickup details in one place.
           </p>
         </motion.div>
 
@@ -154,8 +198,8 @@ export default function LoginPage() {
               </h2>
 
               <p className="text-sm leading-7 text-foreground/68">
-                Reserve surplus food, manage your wallet, and view your pickup
-                codes from one dashboard.
+                Reserve surplus food, manage your account, and view your pickup
+                details from one dashboard.
               </p>
             </div>
           </div>
@@ -207,21 +251,13 @@ export default function LoginPage() {
               </div>
             </label>
 
-            <motion.button
-              type="submit"
+            <AuthSubmitButton
               disabled={isSubmitting}
-              whileHover={isSubmitting ? undefined : { y: -3 }}
-              transition={{ duration: 0.22, ease: "easeOut" }}
-              className="group relative w-full overflow-hidden rounded-2xl border border-white/20 bg-primary px-4 py-3.5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(31,143,87,0.22)] transition-[background-color,box-shadow] duration-300 ease-out hover:bg-primary-strong hover:shadow-[0_18px_40px_rgba(31,143,87,0.28)] focus:outline-none focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-80"
+              isLoading={isSubmitting}
+              loadingLabel="Redirecting..."
             >
-              <span className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
-                <span className="absolute -left-1/2 top-0 h-full w-1/2 bg-gradient-to-r from-transparent via-white/25 to-transparent opacity-0 transition-all duration-700 ease-out group-hover:translate-x-[180%] group-hover:opacity-100" />
-                <span className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.16),transparent_72%)] opacity-0 transition-opacity duration-300 ease-out group-hover:opacity-100" />
-              </span>
-              <span className="relative z-10">
-                {isSubmitting ? "Redirecting..." : "Log in"}
-              </span>
-            </motion.button>
+              Log in
+            </AuthSubmitButton>
 
 
 
