@@ -5,7 +5,7 @@ import com.mischievous.fairies.common.exceptions.EmailAlreadyInUseException;
 import com.mischievous.fairies.common.exceptions.WrongCredentialsException;
 import com.mischievous.fairies.controller.dtos.request.UserLogInDTO;
 import com.mischievous.fairies.controller.dtos.request.UserSignUpDTO;
-import com.mischievous.fairies.persistence.model.UserAccountEntity;
+import com.mischievous.fairies.persistence.model.AccountEntity;
 import com.mischievous.fairies.persistence.repository.UserAccountRepository;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -34,12 +34,12 @@ public class UserAccountService {
             throw new EmailAlreadyInUseException("Email is already in use");
         }
 
-        UserAccountEntity user = new UserAccountEntity();
+        AccountEntity user = new AccountEntity();
         user.setUsername(dto.getUsername());
         user.setEmail(dto.getEmail());
         user.setPasswordHash(passwordEncoder.encode(dto.getPassword()));
 
-        UserAccountEntity savedUser = userAccountRepository.save(user);
+        AccountEntity savedUser = userAccountRepository.save(user);
 
         String accessToken = jwtService.generateAccessToken(savedUser.getId(), savedUser.getEmail());
         String refreshToken = jwtService.generateRefreshToken(savedUser.getId());
@@ -50,7 +50,7 @@ public class UserAccountService {
 
     @Transactional
     public AuthTokens logIn(UserLogInDTO dto) throws WrongCredentialsException {
-        UserAccountEntity user = userAccountRepository.findByEmail(dto.getEmail())
+        AccountEntity user = userAccountRepository.findByEmail(dto.getEmail())
                 .orElseThrow(() -> new WrongCredentialsException("Invalid credentials"));
 
         if (!passwordEncoder.matches(dto.getPassword(), user.getPasswordHash())) {
