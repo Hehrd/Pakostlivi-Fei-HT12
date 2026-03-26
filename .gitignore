@@ -2,4 +2,4 @@ env.properties
 .idea/*
 target/*
 .DS_Store
-.github/*
+**/.github/*
