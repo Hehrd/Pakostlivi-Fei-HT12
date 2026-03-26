@@ -9,5 +9,4 @@ import java.util.Optional;
 @Repository
 public interface ClientRepository extends JpaRepository<ClientEntity, Long> {
     Optional<ClientEntity> findByAccountEmail(String email);
-    Optional<ClientEntity> findByClientId(Long clientId);
 }

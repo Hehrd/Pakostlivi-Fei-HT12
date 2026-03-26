@@ -39,7 +39,7 @@ public class ReservationService {
         FoodSaleEntity foodSaleEntity = foodSaleRepository.findById(foodSaleId)
                 .orElseThrow(() -> new FoodSaleDoesNotExist("Food sale not found"));
 
-        ClientEntity clientEntity = clientRepository.findByClientId(clientId)
+        ClientEntity clientEntity = clientRepository.findById(clientId)
                 .orElseThrow(() -> new UserNotExistingException("User not found"));
 
         Instant issuedAt = Instant.now();
