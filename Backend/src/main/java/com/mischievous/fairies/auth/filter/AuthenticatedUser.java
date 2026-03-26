@@ -1,4 +1,4 @@
 package com.mischievous.fairies.auth.filter;
 
-public record AuthenticatedUser(Integer userId, String email) {
+public record AuthenticatedUser(Long userId, String email) {
 }
