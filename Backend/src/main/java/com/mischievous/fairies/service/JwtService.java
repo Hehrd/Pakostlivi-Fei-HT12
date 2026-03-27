@@ -1,6 +1,6 @@
 package com.mischievous.fairies.service;
 
-import com.mischievous.fairies.auth.JwtValidation;
+import com.mischievous.fairies.auth.JwtValidationService;
 import com.mischievous.fairies.auth.RefreshTokenHasher;
 import com.mischievous.fairies.auth.filter.AuthTokens;
 import com.mischievous.fairies.common.exceptions.InvalidTokenException;
@@ -27,18 +27,18 @@ public class JwtService {
     private static final long REFRESH_EXPIRATION_MS = 1000L * 60 * 60 * 24 * 30;
 
     private final JwtRepository jwtRepository;
-    private final JwtValidation jwtValidation;
+    private final JwtValidationService jwtValidationService;
     private final RefreshTokenHasher refreshTokenHasher;
     private final Key key;
 
     public JwtService(
             JwtRepository jwtRepository,
-            JwtValidation jwtValidation,
+            JwtValidationService jwtValidationService,
             RefreshTokenHasher refreshTokenHasher,
             Key key
     ) {
         this.jwtRepository = jwtRepository;
-        this.jwtValidation = jwtValidation;
+        this.jwtValidationService = jwtValidationService;
         this.refreshTokenHasher = refreshTokenHasher;
         this.key = key;
     }
@@ -82,7 +82,7 @@ public class JwtService {
 
     @Transactional
     public void saveRefreshToken(String rawRefreshToken, AccountEntity user) {
-        Claims claims = jwtValidation.parseClaims(rawRefreshToken);
+        Claims claims = jwtValidationService.parseClaims(rawRefreshToken);
 
         JwtEntity entity = new JwtEntity();
         entity.setJti(claims.getId());
@@ -97,11 +97,11 @@ public class JwtService {
 
     @Transactional
     public AuthTokens refreshTokens(String rawRefreshToken) throws WrongCredentialsException {
-        if (rawRefreshToken == null || !jwtValidation.validateToken(rawRefreshToken)) {
+        if (rawRefreshToken == null || !jwtValidationService.validateToken(rawRefreshToken)) {
             throw new WrongCredentialsException("Invalid credentials");
         }
 
-        Claims claims = jwtValidation.parseClaims(rawRefreshToken);
+        Claims claims = jwtValidationService.parseClaims(rawRefreshToken);
         String jti = claims.getId();
         String tokenHash = refreshTokenHasher.hash(rawRefreshToken);
 
@@ -137,11 +137,11 @@ public class JwtService {
 
     @Transactional
     public void revokeRefreshToken(String rawRefreshToken) {
-        if (rawRefreshToken == null || !jwtValidation.validateToken(rawRefreshToken)) {
+        if (rawRefreshToken == null || !jwtValidationService.validateToken(rawRefreshToken)) {
             return;
         }
 
-        Claims claims = jwtValidation.parseClaims(rawRefreshToken);
+        Claims claims = jwtValidationService.parseClaims(rawRefreshToken);
 
         jwtRepository.findByJti(claims.getId()).ifPresent(token -> {
             token.setRevoked(true);
@@ -149,12 +149,12 @@ public class JwtService {
         });
     }
 
-    public Long extractUserIdFromRefreshToken(String refreshToken) {
-        if (refreshToken == null || !jwtValidation.validateToken(refreshToken)) {
+    public Long extractUserIdFromToken(String token) {
+        if (token == null || !jwtValidationService.validateToken(token)) {
             throw new InvalidTokenException("invalid token");
         }
 
-        Claims claims = jwtValidation.parseClaims(refreshToken);
+        Claims claims = jwtValidationService.parseClaims(token);
         return Long.valueOf(claims.getSubject());
     }
 

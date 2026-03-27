@@ -1,8 +1,6 @@
 package com.mischievous.fairies.controller;
 
 import com.mischievous.fairies.controller.dtos.request.restaurant.CreateRestaurantRequestDto;
-import com.mischievous.fairies.controller.dtos.request.restaurant.DeleteRestaurantRequestDto;
-import com.mischievous.fairies.controller.dtos.request.restaurant.GetRestaurantByIdRequestDto;
 import com.mischievous.fairies.controller.dtos.request.restaurant.UpdateRestaurantRequestDto;
 import com.mischievous.fairies.controller.dtos.response.PagedResponse;
 import com.mischievous.fairies.controller.dtos.response.restaurant.RestaurantResponseDto;
@@ -12,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -29,10 +28,11 @@ public class RestaurantController {
 
     @PostMapping
     public ResponseEntity<RestaurantResponseDto> createRestaurant(
-            @RequestBody CreateRestaurantRequestDto request) {
+            @RequestBody CreateRestaurantRequestDto request,
+            Authentication authentication) {
 
         RestaurantResponseDto response =
-                restaurantService.createRestaurant(request);
+                restaurantService.createRestaurant(request, authentication);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -46,6 +46,15 @@ public class RestaurantController {
         return ResponseEntity.ok(restaurants);
     }
 
+    @GetMapping("/nearby")
+    public ResponseEntity<PagedResponse<RestaurantResponseDto>> getAllRestaurants(@RequestParam(name = "lat") double lat,
+                                                                                  @RequestParam(name = "lng") double lng,
+                                                                                  @RequestParam(name = "radius") double radiusKm,
+                                                                                  Pageable pageable) {
+        PagedResponse<RestaurantResponseDto> page = restaurantService.getNearbyRestaurants(lat, lng, radiusKm, pageable);
+        return ResponseEntity.ok(page);
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<RestaurantResponseDto> getRestaurantById(@PathVariable(name = "id") Long id) {
 
@@ -57,18 +66,20 @@ public class RestaurantController {
 
     @PutMapping
     public ResponseEntity<RestaurantResponseDto> updateRestaurant(
-            @RequestBody UpdateRestaurantRequestDto request) {
+            @RequestBody UpdateRestaurantRequestDto request,
+            Authentication authentication) {
 
         RestaurantResponseDto updated =
-                restaurantService.updateRestaurant(request);
+                restaurantService.updateRestaurant(request, authentication);
 
         return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteRestaurant(
-            @PathVariable(name = "id") Long id) {
-        restaurantService.deleteRestaurant(id);
+            @PathVariable(name = "id") Long id,
+            Authentication authentication) {
+        restaurantService.deleteRestaurant(id, authentication);
         return ResponseEntity.noContent().build();
     }
 }

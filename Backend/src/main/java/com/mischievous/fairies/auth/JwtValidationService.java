@@ -8,11 +8,11 @@ import org.springframework.stereotype.Service;
 import java.security.Key;
 
 @Service
-public class JwtValidation {
+public class JwtValidationService {
 
     private final Key key;
 
-    public JwtValidation(Key key) {
+    public JwtValidationService(Key key) {
         this.key = key;
     }
 

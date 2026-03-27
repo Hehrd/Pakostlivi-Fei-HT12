@@ -5,5 +5,8 @@ import lombok.Data;
 @Data
 public class CreateRestaurantRequestDto {
     private String name;
+     private String googleMapsLink;
+     private double longitude;
+     private double latitude;
 }
 

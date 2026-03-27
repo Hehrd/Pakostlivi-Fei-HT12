@@ -1,24 +1,14 @@
-package com.mischievous.fairies.persistence.model;
+package com.mischievous.fairies.controller.dtos.response.tag;
 
 import com.mischievous.fairies.persistence.status.FoodTagType;
-import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
-@Entity
-@Table(name = "food_tags")
 @AllArgsConstructor
 @NoArgsConstructor
-public class FoodTagEntity {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+public class FoodTagResponseDTO {
     private Long id;
-
-    @Enumerated(EnumType.STRING)
     private FoodTagType type;
-
-
 }

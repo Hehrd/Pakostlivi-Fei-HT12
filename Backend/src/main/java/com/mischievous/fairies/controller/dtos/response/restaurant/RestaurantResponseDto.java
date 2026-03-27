@@ -6,5 +6,8 @@ import lombok.Data;
 public class RestaurantResponseDto {
     private Long id;
     private String name;
+    private String googleMapsLink;
+    private double longitude;
+    private double latitude;
 }
 

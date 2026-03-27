@@ -1,6 +1,6 @@
 package com.mischievous.fairies.controller;
 
-import com.mischievous.fairies.common.exceptions.ReservationNotFoundException;
+import com.mischievous.fairies.auth.filter.AuthenticatedUser;
 import com.mischievous.fairies.controller.dtos.request.reservation.SaveReservationReqDTO;
 import com.mischievous.fairies.controller.dtos.response.reservation.GetReservationDTO;
 import com.mischievous.fairies.service.JwtService;
@@ -25,9 +25,9 @@ public class ReservationController {
     }
 
     @PostMapping
-    public ResponseEntity<Long> createReservation(@RequestBody SaveReservationReqDTO saveReservationReqDTO, @CookieValue(name = "refresh_token", required = false) String refreshToken) {
-        Long foodSaleId = reservationService.saveReservation(saveReservationReqDTO.getFoodSaleId(),
-                                                             jwtService.extractUserIdFromRefreshToken(refreshToken));
+    public ResponseEntity<Long> createReservation(@RequestBody SaveReservationReqDTO saveReservationReqDTO,
+                                                  Authentication authentication) {
+        Long foodSaleId = reservationService.saveReservation(saveReservationReqDTO.getFoodSaleId(), authentication);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -36,7 +36,7 @@ public class ReservationController {
 
     @GetMapping("/{reservationId}")
     public ResponseEntity<GetReservationDTO> getReservation(@PathVariable Long reservationId) {
-        Long clientId = SecurityUtils.getCurrentUserId().longValue();
+        Long clientId = SecurityUtils.getCurrentUserId();
         GetReservationDTO getReservationDTO = reservationService.getReservation(reservationId, clientId);
 
         return ResponseEntity.ok(getReservationDTO);

@@ -1,13 +1,16 @@
 package com.mischievous.fairies.persistence.model;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Entity
+@Table(name = "profiles")
 @Data
-@Table(name = "clients")
-public class ClientEntity {
-
+@AllArgsConstructor
+@NoArgsConstructor
+public class ProfileEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -18,10 +21,14 @@ public class ClientEntity {
     @Column(nullable = false)
     private String lastname;
 
-    @Column()
+    @Column(nullable = true)
     private String profilePictureUrl;
 
-    @OneToOne(optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
+
+
+    @OneToOne
+    @JoinColumn(name = "account_id", nullable = false, unique = true)
     private AccountEntity account;
+
+
 }

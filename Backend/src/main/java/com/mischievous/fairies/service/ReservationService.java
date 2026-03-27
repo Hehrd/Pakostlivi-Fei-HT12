@@ -1,18 +1,22 @@
 package com.mischievous.fairies.service;
 
+import com.mischievous.fairies.auth.filter.AuthenticatedUser;
 import com.mischievous.fairies.common.exceptions.FoodSaleDoesNotExist;
 import com.mischievous.fairies.common.exceptions.ReservationNotFoundException;
 import com.mischievous.fairies.common.exceptions.UserNotExistingException;
 import com.mischievous.fairies.controller.dtos.response.reservation.GetReservationDTO;
-import com.mischievous.fairies.persistence.model.ClientEntity;
+import com.mischievous.fairies.persistence.model.AccountEntity;
 import com.mischievous.fairies.persistence.model.FoodSaleEntity;
 import com.mischievous.fairies.persistence.model.ReservationEntity;
 import com.mischievous.fairies.persistence.model.RestaurantEntity;
-import com.mischievous.fairies.persistence.repository.ClientRepository;
+import com.mischievous.fairies.persistence.repository.AccountRepository;
 import com.mischievous.fairies.persistence.repository.FoodSaleRepository;
 import com.mischievous.fairies.persistence.repository.ReservationRepository;
 import com.mischievous.fairies.persistence.repository.RestaurantRepository;
+import com.mischievous.fairies.persistence.status.AccountRole;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -22,31 +26,33 @@ import java.time.temporal.ChronoUnit;
 public class ReservationService {
     private final ReservationRepository reservationRepository;
     private final FoodSaleRepository foodSaleRepository;
-    private final ClientRepository clientRepository;
+    private final AccountRepository accountRepository;
 
     @Autowired
     public ReservationService(
             ReservationRepository reservationRepository,
             FoodSaleRepository foodSaleRepository,
-            ClientRepository clientRepository
+            AccountRepository accountRepository
     ) {
         this.reservationRepository = reservationRepository;
         this.foodSaleRepository = foodSaleRepository;
-        this.clientRepository = clientRepository;
+        this.accountRepository = accountRepository;
     }
 
-    public Long saveReservation(Long foodSaleId, Long clientId) {
+    public Long saveReservation(Long foodSaleId, Authentication authentication) {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+
         FoodSaleEntity foodSaleEntity = foodSaleRepository.findById(foodSaleId)
                 .orElseThrow(() -> new FoodSaleDoesNotExist("Food sale not found"));
 
-        ClientEntity clientEntity = clientRepository.findById(clientId)
+        AccountEntity accountEntity = accountRepository.findById(authenticatedUser.userId())
                 .orElseThrow(() -> new UserNotExistingException("User not found"));
 
         Instant issuedAt = Instant.now();
 
         ReservationEntity reservation = new ReservationEntity();
         reservation.setFoodSaleEntity(foodSaleEntity);
-        reservation.setClientEntity(clientEntity);
+        reservation.setAccount(accountEntity);
         reservation.setIssued_at(issuedAt);
         reservation.setExpires_at(issuedAt.plus(1, ChronoUnit.HOURS));
 
@@ -59,7 +65,7 @@ public class ReservationService {
         ReservationEntity reservationEntity = reservationRepository.findById(reservationId)
                 .orElseThrow(() -> new ReservationNotFoundException("Reservation not found"));
 
-        if (!reservationEntity.getClientEntity().getId().equals(clientId)) {
+        if (!reservationEntity.getAccount().getId().equals(clientId)) {
             throw new ReservationNotFoundException("Reservation not found");
         }
 

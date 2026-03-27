@@ -8,6 +8,5 @@ import java.util.Optional;
 
 @Repository
 public interface FoodTagRepository extends JpaRepository<FoodTagEntity, Long> {
-    Optional<FoodTagEntity> findByName(String name);
 }
 

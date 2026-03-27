@@ -23,6 +23,12 @@ public class RestaurantEntity {
     @Column(name = "google_maps_link", length = 500)
     private String googleMapsLink;
 
+    @Column
+    private double longitude;
+
+    @Column
+    private double latitude;
+
     @ManyToMany
     @JoinTable(
             name = "restaurant_foods",

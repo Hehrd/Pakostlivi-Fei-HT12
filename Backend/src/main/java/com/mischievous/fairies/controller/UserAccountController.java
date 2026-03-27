@@ -6,11 +6,11 @@ import com.mischievous.fairies.common.exceptions.EmailAlreadyInUseException;
 import com.mischievous.fairies.common.exceptions.WrongCredentialsException;
 import com.mischievous.fairies.controller.dtos.request.user.SignUpReqDTO;
 import com.mischievous.fairies.controller.dtos.request.user.UserReqLogInDTO;
-import com.mischievous.fairies.controller.dtos.response.user.ClientResDTO;
 import com.mischievous.fairies.controller.dtos.response.user.CurrentUserDTO;
+import com.mischievous.fairies.controller.dtos.response.user.UserProfileResDto;
+import com.mischievous.fairies.controller.dtos.response.user.UserResLogInDTO;
 import com.mischievous.fairies.service.AuthCookieService;
 import com.mischievous.fairies.service.AccountService;
-import com.mischievous.fairies.service.ClientService;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -26,43 +26,37 @@ public class UserAccountController {
 
     private final AccountService accountService;
     private final AuthCookieService authCookieService;
-    private final ClientService clientService;
 
     public UserAccountController(AccountService accountService,
-                                 AuthCookieService authCookieService,
-                                 ClientService clientService) {
+                                 AuthCookieService authCookieService) {
         this.accountService = accountService;
         this.authCookieService = authCookieService;
-        this.clientService = clientService;
     }
 
     @GetMapping("/me")
     public ResponseEntity<CurrentUserDTO> me(Authentication authentication) {
         AuthenticatedUser user = (AuthenticatedUser) authentication.getPrincipal();
-        return ResponseEntity.ok(new CurrentUserDTO(user.userId(), user.email()));
+        return ResponseEntity.ok(new CurrentUserDTO(user.userId(), user.email(), user.role()));
     }
 
     @PostMapping("/signup")
     public ResponseEntity<Map<String, Boolean>> signUp(@Valid @RequestBody SignUpReqDTO signUpReqDTO) throws EmailAlreadyInUseException {
-        Map<String, Boolean> response = accountService.signUp(signUpReqDTO.getUser());
-        clientService.saveUser(signUpReqDTO.getClient(), signUpReqDTO.getUser().getEmail());
-
+        Map<String, Boolean> response = accountService.signUp(signUpReqDTO);
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(response);
     }
 
     @PostMapping("/login")
-    public ResponseEntity<ClientResDTO> logIn(@Valid @RequestBody UserReqLogInDTO userReqLogInDTO, HttpServletResponse response) throws WrongCredentialsException {
-        AuthTokens tokens = accountService.logIn(userReqLogInDTO);
+    public ResponseEntity<UserResLogInDTO> logIn(@Valid @RequestBody UserReqLogInDTO userReqLogInDTO, HttpServletResponse response) throws WrongCredentialsException {
+        AccountService.LoginAuth auth = accountService.logIn(userReqLogInDTO);
 
-        authCookieService.addAccessTokenCookie(response, tokens.accessToken());
-        authCookieService.addRefreshTokenCookie(response, tokens.refreshToken());
-        ClientResDTO clientResDTO = clientService.getClientByEmail(userReqLogInDTO.getEmail());
+        authCookieService.addAccessTokenCookie(response, auth.getTokens().accessToken());
+        authCookieService.addRefreshTokenCookie(response, auth.getTokens().refreshToken());
 
         return ResponseEntity
                 .ok()
-                .body(clientResDTO);
+                .body(auth.getResDto());
     }
 
     @PostMapping("/logout")
@@ -74,4 +68,5 @@ public class UserAccountController {
                 .ok()
                 .build();
     }
+
 }

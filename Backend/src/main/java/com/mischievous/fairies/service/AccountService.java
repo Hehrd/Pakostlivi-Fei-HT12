@@ -5,16 +5,25 @@ import com.mischievous.fairies.common.exceptions.EmailAlreadyInUseException;
 import com.mischievous.fairies.common.exceptions.WrongCredentialsException;
 import com.mischievous.fairies.controller.dtos.request.user.SignUpReqDTO;
 import com.mischievous.fairies.controller.dtos.request.user.UserReqLogInDTO;
+import com.mischievous.fairies.controller.dtos.response.tag.AllergenResponseDTO;
+import com.mischievous.fairies.controller.dtos.response.tag.FoodTagResponseDTO;
+import com.mischievous.fairies.controller.dtos.response.user.UserProfileResDto;
+import com.mischievous.fairies.controller.dtos.response.user.UserResLogInDTO;
 import com.mischievous.fairies.persistence.model.AccountEntity;
+import com.mischievous.fairies.persistence.model.ProfileEntity;
 import com.mischievous.fairies.persistence.repository.AccountRepository;
+import com.mischievous.fairies.persistence.status.AccountRole;
+import lombok.Data;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Map;
 
 @Service
 public class AccountService {
+
 
     private final AccountRepository accountRepository;
     private final JwtService jwtService;
@@ -31,15 +40,22 @@ public class AccountService {
     }
 
     @Transactional
-    public Map<String, Boolean> signUp(SignUpReqDTO.UserReqSignUpDTO userReqSignUpDTO) throws EmailAlreadyInUseException {
-        if (accountRepository.existsByEmail(userReqSignUpDTO.getEmail())) {
+    public Map<String, Boolean> signUp(SignUpReqDTO signUpReqDTO) throws EmailAlreadyInUseException {
+        if (accountRepository.existsByEmail(signUpReqDTO.getEmail())) {
             throw new EmailAlreadyInUseException("Email is already in use");
         }
 
         AccountEntity accountEntity = new AccountEntity();
-        accountEntity.setEmail(userReqSignUpDTO.getEmail());
-        accountEntity.setPasswordHash(passwordEncoder.encode(userReqSignUpDTO.getPassword()));
-        accountEntity.setRole(userReqSignUpDTO.getRole());
+        accountEntity.setEmail(signUpReqDTO.getEmail());
+        accountEntity.setPasswordHash(passwordEncoder.encode(signUpReqDTO.getPassword()));
+
+        ProfileEntity profileEntity = new ProfileEntity();
+        profileEntity.setFirstname(signUpReqDTO.getFirstName());
+        profileEntity.setLastname(signUpReqDTO.getLastName());
+        profileEntity.setProfilePictureUrl(signUpReqDTO.getProfilePictureUrl());
+
+        accountEntity.setProfile(profileEntity);
+        accountEntity.setRole(AccountRole.CLIENT);
 
         AccountEntity savedUser = accountRepository.save(accountEntity);
 
@@ -47,7 +63,7 @@ public class AccountService {
     }
 
     @Transactional
-    public AuthTokens logIn(UserReqLogInDTO dto) throws WrongCredentialsException {
+    public LoginAuth logIn(UserReqLogInDTO dto) throws WrongCredentialsException {
         AccountEntity user = accountRepository.findByEmail(dto.getEmail())
                 .orElseThrow(() -> new WrongCredentialsException("Invalid credentials"));
 
@@ -63,11 +79,28 @@ public class AccountService {
         String refreshToken = jwtService.generateRefreshToken(user.getId());
         jwtService.saveRefreshToken(refreshToken, user);
 
-        return new AuthTokens(accessToken, refreshToken);
+
+        UserResLogInDTO resDto = new UserResLogInDTO();
+        resDto.setId(user.getId());
+        resDto.setEmail(user.getEmail());
+        resDto.setFirstName(user.getProfile().getFirstname());
+        resDto.setLastName(user.getProfile().getLastname());
+        resDto.setRole(user.getRole());
+        LoginAuth auth = new LoginAuth();
+        auth.setResDto(resDto);
+        auth.setTokens(new AuthTokens(accessToken, refreshToken));
+        return auth;
     }
 
     @Transactional
     public void logOut(String refreshToken) {
         jwtService.revokeRefreshToken(refreshToken);
+    }
+
+
+    @Data
+    public class LoginAuth {
+        private UserResLogInDTO resDto;
+        private AuthTokens tokens;
     }
 }
