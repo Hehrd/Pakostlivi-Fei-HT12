@@ -42,10 +42,10 @@ public class UserAccountController {
 
     @PostMapping("/signup")
     public ResponseEntity<Map<String, Boolean>> signUp(@Valid @RequestBody SignUpReqDTO signUpReqDTO) throws EmailAlreadyInUseException {
-        Map<String, Boolean> response = accountService.signUp(signUpReqDTO, AccountRole.CLIENT);
+        accountService.signUp(signUpReqDTO, AccountRole.CLIENT);
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(response);
+                .body(Map.of("ok", true));
     }
 
     @PostMapping("/login")

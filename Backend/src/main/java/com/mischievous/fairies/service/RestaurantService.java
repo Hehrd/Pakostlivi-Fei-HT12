@@ -5,6 +5,7 @@ import com.mischievous.fairies.controller.dtos.request.restaurant.CreateRestaura
 import com.mischievous.fairies.controller.dtos.request.restaurant.UpdateRestaurantRequestDto;
 import com.mischievous.fairies.controller.dtos.response.PagedResponse;
 import com.mischievous.fairies.controller.dtos.response.restaurant.RestaurantResponseDto;
+import com.mischievous.fairies.persistence.model.AccountEntity;
 import com.mischievous.fairies.persistence.model.RestaurantEntity;
 import com.mischievous.fairies.persistence.repository.AccountRepository;
 import com.mischievous.fairies.persistence.repository.RestaurantRepository;
@@ -43,13 +44,14 @@ public class RestaurantService {
         if (!authenticatedUser.role().equals(AccountRole.ADMIN)) {
             throw new AccessDeniedException("You are not allowed to access this resource");
         }
-        accountService.signUp(request.getSignUpReqDTO(), AccountRole.RESTAURANT);
+        AccountEntity account = accountService.signUp(request.getSignUpReqDTO(), AccountRole.RESTAURANT);
         CreateRestaurantRequestDto.RestaurantCreateData restaurantCreateData = request.getRestaurantCreateData();
         RestaurantEntity restaurant = new RestaurantEntity();
         restaurant.setName(restaurantCreateData.getName());
         restaurant.setGoogleMapsLink(restaurantCreateData.getGoogleMapsLink());
         restaurant.setLongitude(restaurantCreateData.getLongitude());
         restaurant.setLatitude(restaurantCreateData.getLatitude());
+        restaurant.setOwner(account);
         return toResponseDto(restaurantRepository.save(restaurant));
     }
 
@@ -163,6 +165,25 @@ public class RestaurantService {
         response.setSize(entities.getSize());
         response.setTotal(entities.getNumberOfElements());
         response.setTotalPages(entities.getTotalPages());
+        return response;
+    }
+
+    public PagedResponse<RestaurantResponseDto> getRestaurantsByOwnerId(Authentication authentication, Pageable pageable) {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+        if (!authenticatedUser.role().equals(AccountRole.RESTAURANT)) {
+            throw new AccessDeniedException("You are not allowed to access this resource");
+        }
+        Page<RestaurantEntity> restaurants = restaurantRepository.findAllByOwner_Id(authenticatedUser.userId(), pageable);
+        List<RestaurantResponseDto> dtos = new ArrayList<>();
+        for (RestaurantEntity restaurant : restaurants) {
+            dtos.add(toResponseDto(restaurant));
+        }
+        PagedResponse<RestaurantResponseDto> response = new PagedResponse<>();
+        response.setData(dtos);
+        response.setPage(pageable.getPageNumber());
+        response.setSize(pageable.getPageSize());
+        response.setTotal(restaurants.getNumberOfElements());
+        response.setTotalPages(restaurants.getTotalPages());
         return response;
     }
 }
