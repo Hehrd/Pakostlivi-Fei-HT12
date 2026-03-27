@@ -1,13 +1,15 @@
 package com.mischievous.fairies.controller;
 
-import com.mischievous.fairies.common.exceptions.ReservationNotFoundException;
+import com.mischievous.fairies.auth.filter.AuthenticatedUser;
 import com.mischievous.fairies.controller.dtos.request.reservation.SaveReservationReqDTO;
 import com.mischievous.fairies.controller.dtos.response.reservation.GetReservationDTO;
 import com.mischievous.fairies.service.JwtService;
 import com.mischievous.fairies.service.ReservationService;
+import com.mischievous.fairies.utils.SecurityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -23,9 +25,9 @@ public class ReservationController {
     }
 
     @PostMapping
-    public ResponseEntity<Long> createReservation(@RequestBody SaveReservationReqDTO saveReservationReqDTO, @CookieValue(name = "access_token", required = false) String accessToken) {
-        Long foodSaleId = reservationService.saveReservation(saveReservationReqDTO.getFoodSaleId(),
-                                                             jwtService.extractUserIdFromRefreshToken(accessToken));
+    public ResponseEntity<Long> createReservation(@RequestBody SaveReservationReqDTO saveReservationReqDTO,
+                                                  Authentication authentication) {
+        Long foodSaleId = reservationService.saveReservation(saveReservationReqDTO.getFoodSaleId(), authentication);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -33,13 +35,10 @@ public class ReservationController {
     }
 
     @GetMapping("/{reservationId}")
-    public ResponseEntity<GetReservationDTO> getReservation(@PathVariable Long reservationId,
-                                                            @CookieValue(name = "access_token",  required = false) String accessToken) {
-        Long clientId = jwtService.extractUserIdFromRefreshToken(accessToken);
+    public ResponseEntity<GetReservationDTO> getReservation(@PathVariable Long reservationId) {
+        Long clientId = SecurityUtils.getCurrentUserId();
         GetReservationDTO getReservationDTO = reservationService.getReservation(reservationId, clientId);
 
-        return ResponseEntity
-                .status(HttpStatus.OK)
-                .body(getReservationDTO);
+        return ResponseEntity.ok(getReservationDTO);
     }
 }

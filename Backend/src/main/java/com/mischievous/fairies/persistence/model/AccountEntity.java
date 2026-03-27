@@ -7,6 +7,8 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -20,6 +22,10 @@ public class AccountEntity {
     @NotBlank
     private String email;
 
+    @JoinColumn(name = "profile_id", nullable = false, unique = true)
+    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private ProfileEntity profile;
+
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     @NotNull
@@ -28,11 +34,21 @@ public class AccountEntity {
     @Column(nullable = false, length = 255)
     private String passwordHash;
 
-    @Column(nullable = false, updatable = false)
-    private Instant createdAt;
+    @ManyToMany
+    @JoinTable(
+            name = "profile_allergens",
+            joinColumns = @JoinColumn(name = "profile_id"),
+            inverseJoinColumns = @JoinColumn(name = "allergen_id")
+    )
+    private List<AllergenEntity> allergens = new ArrayList();
 
-    @PrePersist
-    public void prePersist() {
-        this.createdAt = Instant.now();
-    }
+    @ManyToMany
+    @JoinTable(
+            name = "profile_food_tags",
+            joinColumns = @JoinColumn(name = "profile_id"),
+            inverseJoinColumns = @JoinColumn(name = "food_tag_id")
+    )
+    private List<FoodTagEntity> foodTags = new ArrayList();
+
+
 }

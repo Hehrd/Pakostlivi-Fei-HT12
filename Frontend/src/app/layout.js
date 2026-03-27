@@ -1,5 +1,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import AppToaster from "@/components/AppToaster";
+import AppChrome from "@/components/AppChrome";
+import { AuthProvider } from "@/components/AuthProvider";
 import MockServiceWorker from "@/components/MockServiceWorker";
 import "./globals.css";
 
@@ -15,10 +17,11 @@ const geistMono = Geist_Mono({
 
 export const metadata = {
   title: {
-    default: "HackEarly Auth",
-    template: "%s | HackEarly Auth",
+    default: "MunchMun",
+    template: "%s | MunchMun",
   },
-  description: "White and green themed authentication pages built with Tailwind CSS.",
+  description:
+    "MunchMun helps users discover surplus meals, manage preferences, and coordinate pickups.",
 };
 
 export default function RootLayout({ children }) {
@@ -28,7 +31,11 @@ export default function RootLayout({ children }) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <MockServiceWorker>{children}</MockServiceWorker>
+        <MockServiceWorker>
+          <AuthProvider>
+            <AppChrome>{children}</AppChrome>
+          </AuthProvider>
+        </MockServiceWorker>
         <AppToaster />
       </body>
     </html>

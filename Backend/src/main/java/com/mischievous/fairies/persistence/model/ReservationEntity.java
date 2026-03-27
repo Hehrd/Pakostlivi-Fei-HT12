@@ -24,6 +24,6 @@ public class ReservationEntity {
     private FoodSaleEntity foodSaleEntity;
 
     @ManyToOne
-    @JoinColumn(name = "client_id", nullable = false)
-    private ClientEntity clientEntity;
+    @JoinColumn(name = "account_id", nullable = false)
+    private AccountEntity account;
 }

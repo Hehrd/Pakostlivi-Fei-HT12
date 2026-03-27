@@ -1,6 +1,7 @@
 package com.mischievous.fairies.auth.filter;
 
-import com.mischievous.fairies.auth.JwtValidation;
+import com.mischievous.fairies.auth.JwtValidationService;
+import com.mischievous.fairies.persistence.status.AccountRole;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -9,7 +10,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -20,11 +20,11 @@ import java.io.IOException;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private final JwtValidation jwtValidation;
+    private final JwtValidationService jwtValidationService;
 
     @Autowired
-    public JwtAuthenticationFilter(JwtValidation jwtValidation) {
-        this.jwtValidation = jwtValidation;
+    public JwtAuthenticationFilter(JwtValidationService jwtValidationService) {
+        this.jwtValidationService = jwtValidationService;
     }
 
     @Override
@@ -40,17 +40,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        if (!jwtValidation.validateToken(token)) {
+        if (!jwtValidationService.validateToken(token)) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        Claims claims = jwtValidation.parseClaims(token);
+        Claims claims = jwtValidationService.parseClaims(token);
 
         Long userId = Long.valueOf(claims.getSubject());
         String email = claims.get("email", String.class);
+        AccountRole role = AccountRole.valueOf(claims.get("role", String.class));
 
-        AuthenticatedUser authenticatedUser = new AuthenticatedUser(userId, email);
+        AuthenticatedUser authenticatedUser = new AuthenticatedUser(userId, email, role);
 
         UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(

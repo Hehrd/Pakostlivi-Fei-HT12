@@ -1,8 +1,6 @@
 package com.mischievous.fairies.controller;
 
 import com.mischievous.fairies.controller.dtos.request.food.CreateFoodRequestDto;
-import com.mischievous.fairies.controller.dtos.request.food.DeleteFoodRequestDto;
-import com.mischievous.fairies.controller.dtos.request.food.GetFoodByIdRequestDto;
 import com.mischievous.fairies.controller.dtos.request.food.UpdateFoodRequestDto;
 import com.mischievous.fairies.controller.dtos.response.PagedResponse;
 import com.mischievous.fairies.controller.dtos.response.food.FoodResponseDto;
@@ -11,6 +9,7 @@ import com.mischievous.fairies.service.FoodService;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -27,9 +26,10 @@ public class FoodController {
 
     @PostMapping
     public ResponseEntity<FoodResponseDto> createFood(
-            @RequestBody CreateFoodRequestDto request) {
+            @RequestBody CreateFoodRequestDto request,
+            Authentication authentication) {
 
-        FoodResponseDto response = foodService.createFood(request);
+        FoodResponseDto response = foodService.createFood(request, authentication);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -53,17 +53,19 @@ public class FoodController {
 
     @PutMapping
     public ResponseEntity<FoodResponseDto> updateFood(
-            @RequestBody UpdateFoodRequestDto request) {
+            @RequestBody UpdateFoodRequestDto request,
+            Authentication authentication) {
 
-        FoodResponseDto updated = foodService.updateFood(request);
+        FoodResponseDto updated = foodService.updateFood(request, authentication);
 
         return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteFood(
-            @PathVariable(name = "id") Long id) {
-        foodService.deleteFood(id);
+            @PathVariable(name = "id") Long id,
+            Authentication authentication) {
+        foodService.deleteFood(id, authentication);
 
         return ResponseEntity.noContent().build();
     }

@@ -1,5 +1,6 @@
 package com.mischievous.fairies.service;
 
+import com.mischievous.fairies.auth.filter.AuthenticatedUser;
 import com.mischievous.fairies.controller.dtos.request.food.CreateFoodRequestDto;
 import com.mischievous.fairies.controller.dtos.request.food.UpdateFoodRequestDto;
 import com.mischievous.fairies.controller.dtos.response.PagedResponse;
@@ -7,12 +8,17 @@ import com.mischievous.fairies.controller.dtos.response.food.FoodResponseDto;
 import com.mischievous.fairies.persistence.model.AllergenEntity;
 import com.mischievous.fairies.persistence.model.FoodEntity;
 import com.mischievous.fairies.persistence.model.FoodTagEntity;
+import com.mischievous.fairies.persistence.model.RestaurantEntity;
 import com.mischievous.fairies.persistence.repository.AllergenRepository;
 import com.mischievous.fairies.persistence.repository.FoodRepository;
 import com.mischievous.fairies.persistence.repository.FoodTagRepository;
+import com.mischievous.fairies.persistence.repository.RestaurantRepository;
+import com.mischievous.fairies.persistence.status.AccountRole;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -21,24 +27,35 @@ import java.util.List;
 
 @Service
 public class FoodService {
+    private final RestaurantRepository restaurantRepository;
     private final FoodRepository foodRepository;
     private final AllergenRepository allergenRepository;
     private final FoodTagRepository foodTagRepository;
 
     @Autowired
     public FoodService(
+            RestaurantRepository restaurantRepository,
             FoodRepository foodRepository,
             AllergenRepository allergenRepository,
             FoodTagRepository foodTagRepository
     ) {
+        this.restaurantRepository = restaurantRepository;
         this.foodRepository = foodRepository;
         this.allergenRepository = allergenRepository;
         this.foodTagRepository = foodTagRepository;
     }
 
-    public FoodResponseDto createFood(CreateFoodRequestDto request) {
+    public FoodResponseDto createFood(CreateFoodRequestDto request, Authentication authentication) {
+       AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+       if (!authenticatedUser.role().equals(AccountRole.RESTAURANT)) {
+           throw new AccessDeniedException("You are not allowed to access this resource");
+       }
+        RestaurantEntity restaurant = restaurantRepository.findById(request.getRestaurantId())
+                .orElseThrow(() -> new IllegalArgumentException("Restaurant not found with id: " + request.getRestaurantId()));
         FoodEntity food = new FoodEntity();
+        food.setRestaurant(restaurant);
         food.setName(request.getName());
+        food.setDescription(request.getDescription());
         food.setAllergens(resolveAllergens(request.getAllergenIds()));
         food.setFoodTags(resolveFoodTags(request.getFoodTagIds()));
         return toResponseDto(foodRepository.save(food));
@@ -65,7 +82,11 @@ public class FoodService {
         return toResponseDto(food);
     }
 
-    public FoodResponseDto updateFood(UpdateFoodRequestDto request) {
+    public FoodResponseDto updateFood(UpdateFoodRequestDto request, Authentication authentication) {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+        if (!authenticatedUser.role().equals(AccountRole.RESTAURANT)) {
+            throw new AccessDeniedException("You are not allowed to access this resource");
+        }
         FoodEntity existingFood = foodRepository.findById(request.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Food not found with id: " + request.getId()));
 
@@ -76,7 +97,11 @@ public class FoodService {
         return toResponseDto(foodRepository.save(existingFood));
     }
 
-    public void deleteFood(Long id) {
+    public void deleteFood(Long id, Authentication authentication) {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+        if (!authenticatedUser.role().equals(AccountRole.RESTAURANT)) {
+            throw new AccessDeniedException("You are not allowed to access this resource");
+        }
         FoodEntity existingFood = foodRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Food not found with id: " + id));
         foodRepository.delete(existingFood);

@@ -1,14 +1,6 @@
 package com.mischievous.fairies.persistence.model;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.JoinTable;
-import jakarta.persistence.ManyToMany;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -32,6 +24,10 @@ public class FoodEntity {
     @Column(nullable = false, length = 150)
     private String name;
 
+    @Column(nullable = false, length = 150)
+    private String description;
+
+
     @ManyToMany
     @JoinTable(
             name = "food_allergens",
@@ -47,4 +43,8 @@ public class FoodEntity {
             inverseJoinColumns = @JoinColumn(name = "food_tag_id")
     )
     private List<FoodTagEntity> foodTags = new ArrayList();
+
+    @JoinColumn(name = "restaurant_id", nullable = false)
+    @ManyToOne
+    private RestaurantEntity restaurant;
 }

@@ -1,5 +1,6 @@
 package com.mischievous.fairies.controller;
 
+import com.mischievous.fairies.auth.filter.AuthenticatedUser;
 import com.mischievous.fairies.controller.dtos.request.foodsale.CreateFoodSaleRequestDto;
 import com.mischievous.fairies.controller.dtos.request.foodsale.UpdateFoodSaleRequestDto;
 import com.mischievous.fairies.controller.dtos.response.PagedResponse;
@@ -8,6 +9,7 @@ import com.mischievous.fairies.service.FoodSaleService;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -29,8 +31,9 @@ public class FoodSaleController {
     }
 
     @PostMapping
-    public ResponseEntity<FoodSaleResponseDto> createFoodSale(@RequestBody CreateFoodSaleRequestDto request) {
-        FoodSaleResponseDto created = foodSaleService.createFoodSale(request);
+    public ResponseEntity<FoodSaleResponseDto> createFoodSale(@RequestBody CreateFoodSaleRequestDto request,
+                                                              Authentication authentication) {
+        FoodSaleResponseDto created = foodSaleService.createFoodSale(request, authentication);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
@@ -39,19 +42,26 @@ public class FoodSaleController {
         return ResponseEntity.ok(foodSaleService.getAllFoodSales(pageable));
     }
 
+    @GetMapping("/restaurant/{restaurantId}")
+    public ResponseEntity<List<FoodSaleResponseDto>> getFoodSalesByRestaurantId(@PathVariable(name = "restaurantId") Long restaurantId) {
+        return ResponseEntity.ok(foodSaleService.getFoodSalesByRestaurantId(restaurantId));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<FoodSaleResponseDto> getFoodSaleById(@PathVariable(name = "id") Long id) {
         return ResponseEntity.ok(foodSaleService.getFoodSaleById(id));
     }
 
     @PutMapping
-    public ResponseEntity<FoodSaleResponseDto> updateFoodSale(@RequestBody UpdateFoodSaleRequestDto request) {
-        return ResponseEntity.ok(foodSaleService.updateFoodSale(request));
+    public ResponseEntity<FoodSaleResponseDto> updateFoodSale(@RequestBody UpdateFoodSaleRequestDto request,
+                                                              Authentication authentication) {
+        return ResponseEntity.ok(foodSaleService.updateFoodSale(request, authentication));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteFoodSale(@PathVariable(name = "id") Long id) {
-        foodSaleService.deleteFoodSale(id);
+    public ResponseEntity<Void> deleteFoodSale(@PathVariable(name = "id") Long id,
+                                               Authentication authentication) {
+        foodSaleService.deleteFoodSale(id, authentication);
         return ResponseEntity.noContent().build();
     }
 }
