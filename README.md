@@ -1,10 +1,10 @@
-🍽️ MunchMun
+🍽️ MunchMan
 
 A web platform that helps reduce food waste by allowing users to buy surplus food from restaurants, canteens, and food vendors at discounted prices before it gets thrown away — with a built-in wallet system and secure pickup via code.
 
 📖 Description
 
-MunchMun connects food providers with users who are looking for affordable meals. Businesses can list leftover food at the end of the day, and users can reserve portions, pay through the platform, and collect their food using a unique pickup code.
+MunchMan connects food providers with users who are looking for affordable meals. Businesses can list leftover food at the end of the day, and users can reserve portions, pay through the platform, and collect their food using a unique pickup code.
 
 This helps:
 
