@@ -39,6 +39,14 @@ public class RestaurantController {
                 .body(response);
     }
 
+    @GetMapping("/by-owner")
+    public ResponseEntity<PagedResponse<RestaurantResponseDto>> getRestaurantsByOwnerId(Pageable pageable,
+                                                                               Authentication authentication) {
+        PagedResponse<RestaurantResponseDto> restaurants = restaurantService.getRestaurantsByOwnerId(authentication, pageable);
+        return ResponseEntity.ok(restaurants);
+
+    }
+
     @GetMapping
     public ResponseEntity<PagedResponse<RestaurantResponseDto>> getAllRestaurants(Pageable pageable) {
         PagedResponse<RestaurantResponseDto> restaurants =

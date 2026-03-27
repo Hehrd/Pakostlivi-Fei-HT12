@@ -39,7 +39,7 @@ public class AccountService {
         this.passwordEncoder = passwordEncoder;
     }
 
-    public Map<String, Boolean> signUp(SignUpReqDTO signUpReqDTO, AccountRole role) throws EmailAlreadyInUseException {
+    public AccountEntity signUp(SignUpReqDTO signUpReqDTO, AccountRole role) throws EmailAlreadyInUseException {
         if (accountRepository.existsByEmail(signUpReqDTO.getEmail())) {
             throw new EmailAlreadyInUseException("Email is already in use");
         }
@@ -57,9 +57,8 @@ public class AccountService {
         profileEntity.setAccount(accountEntity);
         accountEntity.setRole(role);
 
-        AccountEntity savedUser = accountRepository.save(accountEntity);
+        return accountRepository.save(accountEntity);
 
-        return Map.of("ok", true);
     }
 
     public LoginAuth logIn(UserReqLogInDTO dto) throws WrongCredentialsException {
