@@ -29,6 +29,4 @@ public class TagController {
     public ResponseEntity<List<AllergenResponseDTO>> getAllAllergens() {
         return ResponseEntity.ok(tagService.getAllAllergens());
     }
-
-
 }

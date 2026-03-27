@@ -1,13 +1,13 @@
 from fastapi import APIRouter
-from Backend.src.main.python.controller.dto.DataDTO import RecommendationRequestDTO, RecommendationResponseDTO, \
+from Backend.src.main.python.controller.dto.data_dto import RecommendationRequestDTO, RecommendationResponseDTO, \
                                                            RecommendationResultDTO
 from Backend.src.main.python.service.recommend_service import RecommendationService
 
-router = APIRouter()
+faiss_router = APIRouter()
 recommendation_service = RecommendationService()
 
 
-@router.post("/recommend", response_model=RecommendationResponseDTO)
+@faiss_router.post("/recommend", response_model=RecommendationResponseDTO)
 def recommend(data: RecommendationRequestDTO):
     restaurants = [restaurant.model_dump() for restaurant in data.restaurants]
     user = data.user.model_dump()

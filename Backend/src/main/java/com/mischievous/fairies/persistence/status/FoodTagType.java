@@ -1,14 +1,19 @@
 package com.mischievous.fairies.persistence.status;
 
 public enum FoodTagType {
-    CHICKEN,
-    PIZZA,
-    BBQ,
-    PASTA,
-    TOMATOES,
-    PORK,
-    KEBAB,
-    STEW,
-    MUSHROOM,
-    CUCUMBER
+    RICE,
+    SOUP,
+    BEEF,
+    FISH,
+    EGGS,
+    CHEESE,
+    POTATO,
+    ONION,
+    GARLIC,
+    BREAD,
+    SALAD,
+    SEAFOOD,
+    NOODLES,
+    LENTILS,
+    BEANS
 }
