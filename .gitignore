@@ -3,3 +3,7 @@ env.properties
 **/target/*
 .DS_Store
 **/.github/*
+
+__pycache__/
+*.pyc
+venv/

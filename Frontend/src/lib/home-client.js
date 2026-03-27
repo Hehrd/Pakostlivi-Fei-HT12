@@ -4,6 +4,7 @@ import {
   normalizePagedPayload,
   normalizeRestaurantRecord,
 } from "@/lib/backend-normalizers";
+import { centsToCurrencyValue } from "@/lib/price";
 
 const DEFAULT_RADIUS_KM = 5;
 const DISCOVERY_RESTAURANT_LIMIT = 60;
@@ -305,8 +306,9 @@ async function fetchRealListings(params) {
           id: String(sale?.id ?? ""),
           restaurantId: restaurant.id,
           title: food?.name ?? `Food sale #${sale?.id ?? ""}`,
-          description: `Available meal from ${restaurant.name}.`,
-          price: Number(sale?.price ?? 0),
+          description:
+            food?.description?.trim() || `Available meal from ${restaurant.name}.`,
+          price: centsToCurrencyValue(sale?.price),
           pickupWindow: formatPickupWindow(sale?.issuedAt, sale?.expiresAt),
           tags,
           allergens,

@@ -14,7 +14,12 @@ import {
   updatePreferredFoodTags,
   updateUserAllergens,
 } from "@/lib/auth-client";
-import { getUserDisplayName } from "@/lib/auth-user";
+import {
+  getUserDisplayName,
+  isAdminUser,
+  isClientUser,
+  isRestaurantUser,
+} from "@/lib/auth-user";
 
 function SettingsCard({ eyebrow, title, description, children }) {
   return (
@@ -65,7 +70,39 @@ export default function SettingsPage() {
   const [isSavingAllergens, setIsSavingAllergens] = useState(false);
   const [isSavingPreferredFoods, setIsSavingPreferredFoods] = useState(false);
   const [isSavingPassword, setIsSavingPassword] = useState(false);
-  const isWriteUnavailable = API_MODE !== "mock";
+  const isPreferenceWriteUnavailable = false;
+  const isPasswordWriteUnavailable = API_MODE !== "mock";
+  const isAdmin = isAdminUser(user);
+  const isRestaurant = isRestaurantUser(user);
+  const isClient = isClientUser(user);
+  const profileInitials = [user?.firstName?.[0], user?.lastName?.[0]]
+    .filter(Boolean)
+    .join("");
+  const roleLabel = isAdmin
+    ? "Admin account"
+    : isRestaurant
+      ? "Restaurant owner account"
+      : "Client account";
+  const heroTitle = isAdmin
+    ? "Manage your admin account without the customer-only extras."
+    : isRestaurant
+      ? "Keep your restaurant-owner account details tidy and secure."
+      : "Tune your account around how you actually eat.";
+  const heroDescription = isAdmin
+    ? "Security and profile details live here. Customer food preferences stay hidden for admin accounts."
+    : isRestaurant
+      ? "Update your account details here. Meal discovery preferences stay out of the way for restaurant-owner accounts."
+      : "Update your password, allergen exclusions, and the food styles you want MunchMun to surface more often.";
+  const backHref = isAdmin
+    ? "/admin/restaurants"
+    : isRestaurant
+      ? "/restaurant/listings"
+      : "/";
+  const backLabel = isAdmin
+    ? "Back to admin"
+    : isRestaurant
+      ? "Back to listings"
+      : "Back to home";
 
   const savedAllergensKey = useMemo(
     () => (user?.allergens ?? []).slice().sort().join("|"),
@@ -100,6 +137,12 @@ export default function SettingsPage() {
 
   useEffect(() => {
     async function loadOptions() {
+      if (!isClient) {
+        setAvailableAllergens([]);
+        setAvailableFoodTags([]);
+        return;
+      }
+
       try {
         const [allergenPayload, foodTagPayload] = await Promise.all([
           getAllergens(),
@@ -116,7 +159,7 @@ export default function SettingsPage() {
     }
 
     loadOptions();
-  }, []);
+  }, [isClient]);
 
   function toggleAllergen(allergenId) {
     setDraftAllergens((current) =>
@@ -233,11 +276,10 @@ export default function SettingsPage() {
               </span>
               <div className="space-y-3">
                 <h1 className="max-w-[16ch] text-4xl font-semibold leading-[1.05] tracking-[-0.04em]">
-                  Tune your account around how you actually eat.
+                  {heroTitle}
                 </h1>
                 <p className="max-w-2xl text-sm leading-7 text-white/78 sm:text-base">
-                  Update your password, allergen exclusions, and the food styles
-                  you want MunchMun to surface more often.
+                  {heroDescription}
                 </p>
               </div>
             </div>
@@ -249,16 +291,19 @@ export default function SettingsPage() {
             </p>
             <div className="mt-4 flex items-center gap-4">
               <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft text-xl font-bold text-primary">
-                {[user.firstName?.[0], user.lastName?.[0]].filter(Boolean).join("")}
+                {profileInitials || "MM"}
               </div>
               <div className="space-y-1">
                 <p className="text-xl font-semibold text-foreground">
                   {getUserDisplayName(user)}
                 </p>
                 <p className="text-sm text-foreground/62">{user.email}</p>
-                <p className="text-sm text-foreground/56">
-                  Wallet balance: {Number(user.walletBalance ?? 0).toFixed(2)} lv
-                </p>
+                <p className="text-sm text-foreground/56">{roleLabel}</p>
+                {isClient ? (
+                  <p className="text-sm text-foreground/56">
+                    Wallet balance: {Number(user.walletBalance ?? 0).toFixed(2)} lv
+                  </p>
+                ) : null}
               </div>
             </div>
           </aside>
@@ -274,7 +319,7 @@ export default function SettingsPage() {
               <input
                 type="password"
                 value={currentPassword}
-                disabled={isWriteUnavailable}
+                disabled={isPasswordWriteUnavailable}
                 onChange={(event) => setCurrentPassword(event.target.value)}
                 placeholder="Current password"
                 className="w-full rounded-2xl border border-border bg-surface-muted px-4 py-3 text-sm outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
@@ -282,7 +327,7 @@ export default function SettingsPage() {
               <input
                 type="password"
                 value={newPassword}
-                disabled={isWriteUnavailable}
+                disabled={isPasswordWriteUnavailable}
                 onChange={(event) => setNewPassword(event.target.value)}
                 placeholder="New password"
                 className="w-full rounded-2xl border border-border bg-surface-muted px-4 py-3 text-sm outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
@@ -290,23 +335,23 @@ export default function SettingsPage() {
               <input
                 type="password"
                 value={confirmPassword}
-                disabled={isWriteUnavailable}
+                disabled={isPasswordWriteUnavailable}
                 onChange={(event) => setConfirmPassword(event.target.value)}
                 placeholder="Confirm new password"
                 className="w-full rounded-2xl border border-border bg-surface-muted px-4 py-3 text-sm outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
               />
               <button
                 type="submit"
-                disabled={isSavingPassword || isWriteUnavailable}
+                disabled={isSavingPassword || isPasswordWriteUnavailable}
                 className="rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-white transition hover:bg-primary-strong disabled:cursor-not-allowed disabled:opacity-80"
               >
-                {isWriteUnavailable
+                {isPasswordWriteUnavailable
                   ? "Unavailable"
                   : isSavingPassword
                     ? "Updating password..."
                     : "Save new password"}
               </button>
-              {isWriteUnavailable ? (
+              {isPasswordWriteUnavailable ? (
                 <p className="text-sm text-foreground/62">
                   Password updates are not available from the connected API yet.
                 </p>
@@ -314,101 +359,126 @@ export default function SettingsPage() {
             </form>
           </SettingsCard>
 
-          <SettingsCard
-            eyebrow="Allergens"
-            title="Manage allergen exclusions"
-            description="These are used to exclude meals automatically while you browse nearby listings."
-          >
-            <div className="flex flex-wrap gap-2">
-              {availableAllergens.map((allergen) => (
-                <PreferenceChip
-                  key={allergen.id}
-                  disabled={isWriteUnavailable}
-                  active={draftAllergens.includes(allergen.id)}
-                  onClick={() => toggleAllergen(allergen.id)}
-                >
-                  {allergen.label}
-                </PreferenceChip>
-              ))}
-            </div>
-            <div className="mt-5 flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={handleSaveAllergens}
-                disabled={
-                  !hasUnsavedAllergens || isSavingAllergens || isWriteUnavailable
-                }
-                className="rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-white transition hover:bg-primary-strong disabled:cursor-not-allowed disabled:opacity-80"
-              >
-                {isWriteUnavailable
-                  ? "Unavailable"
-                  : isSavingAllergens
-                    ? "Saving allergens..."
-                    : "Save allergens"}
-              </button>
-              <p className="text-sm text-foreground/62">
-                {isWriteUnavailable
-                  ? "Allergen preferences are currently read-only with the connected API."
-                  : draftAllergens.length > 0
-                  ? `Selected: ${draftAllergens.join(", ")}`
-                  : "No allergens selected yet."}
-              </p>
-            </div>
-          </SettingsCard>
-
-          <div className="xl:col-span-2">
+          {isClient ? (
             <SettingsCard
-              eyebrow="Taste profile"
-              title="Preferred foods"
-              description="Pick the food tags you want prioritized while browsing listings."
+              eyebrow="Allergens"
+              title="Manage allergen exclusions"
+              description="These are used to exclude meals automatically while you browse nearby listings."
             >
               <div className="flex flex-wrap gap-2">
-                {availableFoodTags.map((tag) => (
+                {availableAllergens.map((allergen) => (
                   <PreferenceChip
-                    key={tag}
-                    disabled={isWriteUnavailable}
-                    active={draftPreferredFoodTags.includes(tag)}
-                    onClick={() => togglePreferredFoodTag(tag)}
+                    key={allergen.id}
+                    disabled={isPreferenceWriteUnavailable}
+                    active={draftAllergens.includes(allergen.id)}
+                    onClick={() => toggleAllergen(allergen.id)}
                   >
-                    {tag}
+                    {allergen.label}
                   </PreferenceChip>
                 ))}
               </div>
               <div className="mt-5 flex flex-wrap items-center gap-3">
                 <button
                   type="button"
-                  onClick={handleSavePreferredFoods}
+                  onClick={handleSaveAllergens}
                   disabled={
-                    !hasUnsavedPreferredFoods ||
-                    isSavingPreferredFoods ||
-                    isWriteUnavailable
+                    !hasUnsavedAllergens ||
+                    isSavingAllergens ||
+                    isPreferenceWriteUnavailable
                   }
                   className="rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-white transition hover:bg-primary-strong disabled:cursor-not-allowed disabled:opacity-80"
                 >
-                  {isWriteUnavailable
+                  {isPreferenceWriteUnavailable
                     ? "Unavailable"
-                    : isSavingPreferredFoods
-                      ? "Saving preferred foods..."
-                      : "Save preferred foods"}
+                    : isSavingAllergens
+                      ? "Saving allergens..."
+                      : "Save allergens"}
                 </button>
                 <p className="text-sm text-foreground/62">
-                  {isWriteUnavailable
-                    ? "Preferred food tags are currently read-only with the connected API."
-                    : draftPreferredFoodTags.length > 0
-                    ? `Selected: ${draftPreferredFoodTags.join(", ")}`
-                    : "No preferred food tags selected yet."}
+                  {isPreferenceWriteUnavailable
+                    ? "Allergen preferences are currently read-only with the connected API."
+                    : draftAllergens.length > 0
+                      ? `Selected: ${draftAllergens.join(", ")}`
+                      : "No allergens selected yet."}
                 </p>
               </div>
             </SettingsCard>
-          </div>
+
+          ) : (
+            <SettingsCard
+              eyebrow="Role"
+              title="Role-specific settings"
+              description="This account type does not use customer meal discovery preferences."
+            >
+              <div className="space-y-4 text-sm leading-7 text-foreground/66">
+                <p>
+                  Allergen exclusions and preferred food tags are only shown for
+                  client accounts, because those preferences shape what the home
+                  feed and filters surface.
+                </p>
+                <p>
+                  Your account still has access to profile details and password
+                  management here when those features are supported by the API.
+                </p>
+              </div>
+            </SettingsCard>
+          )}
+
+          {isClient ? (
+            <div className="xl:col-span-2">
+              <SettingsCard
+                eyebrow="Taste profile"
+                title="Preferred foods"
+                description="Pick the food tags you want prioritized while browsing listings."
+              >
+                <div className="flex flex-wrap gap-2">
+                  {availableFoodTags.map((tag) => (
+                    <PreferenceChip
+                      key={tag}
+                      disabled={isPreferenceWriteUnavailable}
+                      active={draftPreferredFoodTags.includes(tag)}
+                      onClick={() => togglePreferredFoodTag(tag)}
+                    >
+                      {tag}
+                    </PreferenceChip>
+                  ))}
+                </div>
+                <div className="mt-5 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleSavePreferredFoods}
+                    disabled={
+                      !hasUnsavedPreferredFoods ||
+                      isSavingPreferredFoods ||
+                      isPreferenceWriteUnavailable
+                    }
+                    className="rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-white transition hover:bg-primary-strong disabled:cursor-not-allowed disabled:opacity-80"
+                  >
+                    {isPreferenceWriteUnavailable
+                      ? "Unavailable"
+                      : isSavingPreferredFoods
+                        ? "Saving preferred foods..."
+                        : "Save preferred foods"}
+                  </button>
+                  <p className="text-sm text-foreground/62">
+                    {isPreferenceWriteUnavailable
+                      ? "Preferred food tags are currently read-only with the connected API."
+                      : draftPreferredFoodTags.length > 0
+                        ? `Selected: ${draftPreferredFoodTags.join(", ")}`
+                        : "No preferred food tags selected yet."}
+                  </p>
+                </div>
+              </SettingsCard>
+            </div>
+          ) : null}
         </div>
 
         <div className="flex flex-wrap gap-3">
           <Link
-            href="/"
+            href={backHref}
             className="rounded-full border border-border bg-white px-4 py-2.5 text-sm font-semibold text-foreground transition hover:border-primary/35 hover:bg-primary-soft/35"
           >
-            Back to home
+            {backLabel}
           </Link>
         </div>
       </motion.section>

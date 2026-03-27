@@ -1,50 +1,60 @@
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-let googleMapsPromise = null;
+const GOOGLE_MAPS_VERSION = "weekly";
 
-export function loadGoogleMaps() {
+function installGoogleMapsLoader() {
   if (typeof window === "undefined") {
-    return Promise.reject(new Error("Google Maps can only load in the browser."));
-  }
-
-  if (window.google?.maps) {
-    return Promise.resolve(window.google.maps);
+    throw new Error("Google Maps can only load in the browser.");
   }
 
   if (!GOOGLE_MAPS_API_KEY) {
-    return Promise.reject(
-      new Error("Missing NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in the frontend env.")
-    );
+    throw new Error("Missing NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in the frontend env.");
   }
 
-  if (googleMapsPromise) {
-    return googleMapsPromise;
+  if (window.google?.maps?.importLibrary) {
+    return;
   }
 
-  googleMapsPromise = new Promise((resolve, reject) => {
-    const existingScript = document.getElementById("google-maps-script");
+  const googleNamespace = (window.google = window.google || {});
+  const mapsNamespace = (googleNamespace.maps = googleNamespace.maps || {});
 
-    if (existingScript) {
-      existingScript.addEventListener("load", () => resolve(window.google.maps), {
-        once: true,
-      });
-      existingScript.addEventListener(
-        "error",
-        () => reject(new Error("Google Maps failed to load.")),
-        { once: true }
-      );
-      return;
-    }
+  let loaderPromise = null;
+  const requestedLibraries = new Set();
 
-    const script = document.createElement("script");
-    script.id = "google-maps-script";
-    script.async = true;
-    script.defer = true;
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&v=weekly`;
-    script.onload = () => resolve(window.google.maps);
-    script.onerror = () => reject(new Error("Google Maps failed to load."));
+  const injectScript = () =>
+    loaderPromise ||
+    (loaderPromise = new Promise((resolve, reject) => {
+      const params = new URLSearchParams();
+      const script = document.createElement("script");
 
-    document.head.appendChild(script);
-  });
+      params.set("libraries", [...requestedLibraries].join(","));
+      params.set("key", GOOGLE_MAPS_API_KEY);
+      params.set("v", GOOGLE_MAPS_VERSION);
+      params.set("loading", "async");
+      params.set("callback", "google.maps.__ib__");
 
-  return googleMapsPromise;
+      mapsNamespace.__ib__ = resolve;
+      script.src = `https://maps.googleapis.com/maps/api/js?${params.toString()}`;
+      script.async = true;
+      script.onerror = () => reject(new Error("Google Maps failed to load."));
+      script.nonce = document.querySelector("script[nonce]")?.nonce || "";
+
+      document.head.appendChild(script);
+    }));
+
+  mapsNamespace.importLibrary = (library, ...args) => {
+    requestedLibraries.add(library);
+    return injectScript().then(() => mapsNamespace.importLibrary(library, ...args));
+  };
+}
+
+export async function loadGoogleMaps(libraries = []) {
+  installGoogleMapsLoader();
+
+  const requestedLibraries = libraries.length > 0 ? libraries : ["core"];
+
+  await Promise.all(
+    requestedLibraries.map((library) => window.google.maps.importLibrary(library))
+  );
+
+  return window.google.maps;
 }

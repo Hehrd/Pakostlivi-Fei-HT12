@@ -10,6 +10,7 @@ public class UpdateFoodSaleRequestDto {
     private Long id;
     private Long foodId;
     private Long price;
+    private int quantity;
     private Instant issuedAt;
     private Instant expiresAt;
 }

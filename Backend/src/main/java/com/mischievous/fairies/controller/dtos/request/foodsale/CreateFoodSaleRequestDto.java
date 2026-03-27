@@ -8,7 +8,7 @@ import java.time.Instant;
 @Data
 public class CreateFoodSaleRequestDto {
     private Long foodId;
-    private double price;
+    private Long price;
     private int quantity;
     private Instant issuedAt;
     private Instant expiresAt;

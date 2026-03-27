@@ -12,6 +12,61 @@ function buildDefaultProfilePictureUrl(firstName = "", lastName = "") {
   return `https://api.dicebear.com/9.x/initials/svg?seed=${seed}`;
 }
 
+async function getCurrentAccountAndProfile() {
+  const currentUser = await request("/account/me");
+
+  if (!currentUser?.id) {
+    throw {
+      status: 400,
+      message: "Unable to resolve the current user.",
+    };
+  }
+
+  const profile = await request(`/profiles/${currentUser.id}`);
+
+  if (!profile?.id) {
+    throw {
+      status: 400,
+      message: "Unable to load your profile details.",
+    };
+  }
+
+  return {
+    currentUser,
+    profile,
+  };
+}
+
+function buildOptionLookup(items) {
+  return new Map(
+    (Array.isArray(items) ? items : []).map((item) => [
+      formatEnumLabel(item?.type),
+      item,
+    ])
+  );
+}
+
+function mapSelectedLabelsToOptions(selectedLabels, options, emptyMessage) {
+  const lookup = buildOptionLookup(options);
+
+  return (Array.isArray(selectedLabels) ? selectedLabels : []).map((label) => {
+    const option = lookup.get(label);
+
+    if (!option) {
+      throw {
+        status: 400,
+        message: emptyMessage,
+      };
+    }
+
+    return option;
+  });
+}
+
+async function refreshCurrentUser() {
+  return getCurrentUser();
+}
+
 export async function login(body) {
   return request("/account/login", {
     method: "POST",
@@ -62,7 +117,7 @@ export async function getCurrentUser() {
   }
 
   try {
-    const profile = await apiFetch(`/profile/${currentUser.id}`);
+    const profile = await apiFetch(`/profiles/${currentUser.id}`);
 
     return {
       ...currentUser,
@@ -136,31 +191,73 @@ export async function completeOnboarding(body) {
 }
 
 export async function updateUserAllergens(body) {
-  if (API_MODE !== "mock") {
-    throw {
-      status: 501,
-      message: "Allergen updates are not available from the backend yet.",
-    };
+  if (API_MODE === "mock") {
+    return request("/users/me/allergens", {
+      method: "PATCH",
+      body,
+    });
   }
 
-  return request("/users/me/allergens", {
-    method: "PATCH",
-    body,
+  const [{ profile }, allergenOptions] = await Promise.all([
+    getCurrentAccountAndProfile(),
+    request("/tags/allergens"),
+  ]);
+  const nextAllergenTypes = mapSelectedLabelsToOptions(
+    body?.allergens,
+    allergenOptions,
+    "One or more selected allergens could not be matched."
+  );
+
+  await request("/profiles", {
+    method: "PUT",
+    body: {
+      id: profile.id,
+      firstName: profile?.firstName ?? "",
+      lastName: profile?.lastName ?? "",
+      profilePictureUrl: profile?.profilePictureUrl ?? "",
+      allergenTypes: nextAllergenTypes,
+      foodTagTypes: Array.isArray(profile?.foodTagTypes) ? profile.foodTagTypes : [],
+    },
   });
+
+  return {
+    user: await refreshCurrentUser(),
+  };
 }
 
 export async function updatePreferredFoodTags(body) {
-  if (API_MODE !== "mock") {
-    throw {
-      status: 501,
-      message: "Preferred food updates are not available from the backend yet.",
-    };
+  if (API_MODE === "mock") {
+    return request("/users/me/preferences", {
+      method: "PATCH",
+      body,
+    });
   }
 
-  return request("/users/me/preferences", {
-    method: "PATCH",
-    body,
+  const [{ profile }, foodTagOptions] = await Promise.all([
+    getCurrentAccountAndProfile(),
+    request("/tags/food"),
+  ]);
+  const nextFoodTagTypes = mapSelectedLabelsToOptions(
+    body?.preferredFoodTags,
+    foodTagOptions,
+    "One or more selected food tags could not be matched."
+  );
+
+  await request("/profiles", {
+    method: "PUT",
+    body: {
+      id: profile.id,
+      firstName: profile?.firstName ?? "",
+      lastName: profile?.lastName ?? "",
+      profilePictureUrl: profile?.profilePictureUrl ?? "",
+      allergenTypes: Array.isArray(profile?.allergenTypes) ? profile.allergenTypes : [],
+      foodTagTypes: nextFoodTagTypes,
+    },
   });
+
+  return {
+    user: await refreshCurrentUser(),
+  };
 }
 
 export async function changePassword(body) {

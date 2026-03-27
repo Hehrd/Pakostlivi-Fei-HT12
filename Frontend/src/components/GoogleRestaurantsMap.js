@@ -3,15 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import { loadGoogleMaps } from "@/lib/google-maps";
 
-function createMarkerIcon(mapsApi, fillColor) {
-  return {
-    path: mapsApi.SymbolPath.CIRCLE,
-    fillColor,
-    fillOpacity: 1,
-    strokeColor: "#ffffff",
-    strokeWeight: 2,
-    scale: 10,
-  };
+const GOOGLE_MAPS_MAP_ID =
+  process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || "DEMO_MAP_ID";
+
+function createMarkerContent(markerApi, fillColor, scale = 1) {
+  return new markerApi.PinElement({
+    background: fillColor,
+    borderColor: "#ffffff",
+    glyphColor: "#ffffff",
+    scale,
+  });
 }
 
 export default function GoogleRestaurantsMap({
@@ -24,6 +25,7 @@ export default function GoogleRestaurantsMap({
   const mapRef = useRef(null);
   const markersRef = useRef([]);
   const userMarkerRef = useRef(null);
+  const markerLibraryRef = useRef(null);
   const [mapError, setMapError] = useState("");
   const [isMapReady, setIsMapReady] = useState(false);
 
@@ -32,28 +34,23 @@ export default function GoogleRestaurantsMap({
 
     async function setupMap() {
       try {
-        const mapsApi = await loadGoogleMaps();
+        const mapsApi = await loadGoogleMaps(["maps", "marker"]);
+        const { Map } = await mapsApi.importLibrary("maps");
+        const markerLibrary = await mapsApi.importLibrary("marker");
 
         if (!isMounted || !containerRef.current || mapRef.current) {
           return;
         }
 
-        mapRef.current = new mapsApi.Map(containerRef.current, {
+        markerLibraryRef.current = markerLibrary;
+
+        mapRef.current = new Map(containerRef.current, {
           center: userLocation,
           zoom: 14,
+          mapId: GOOGLE_MAPS_MAP_ID,
           disableDefaultUI: true,
           zoomControl: true,
           fullscreenControl: true,
-          styles: [
-            {
-              featureType: "poi",
-              stylers: [{ visibility: "off" }],
-            },
-            {
-              featureType: "transit",
-              stylers: [{ visibility: "off" }],
-            },
-          ],
         });
         setIsMapReady(true);
       } catch (error) {
@@ -71,41 +68,50 @@ export default function GoogleRestaurantsMap({
   }, [userLocation]);
 
   useEffect(() => {
-    if (!mapRef.current || !window.google?.maps) {
+    if (
+      !mapRef.current ||
+      !window.google?.maps ||
+      !markerLibraryRef.current?.AdvancedMarkerElement
+    ) {
       return;
     }
-
-    const mapsApi = window.google.maps;
 
     mapRef.current.setCenter(userLocation);
 
     if (!userMarkerRef.current) {
-      userMarkerRef.current = new mapsApi.Marker({
+      userMarkerRef.current = new markerLibraryRef.current.AdvancedMarkerElement({
         map: mapRef.current,
         position: userLocation,
         title: "Your location",
-        icon: createMarkerIcon(mapsApi, "#113322"),
+        content: createMarkerContent(markerLibraryRef.current, "#113322", 0.95),
       });
     } else {
-      userMarkerRef.current.setPosition(userLocation);
+      userMarkerRef.current.position = userLocation;
     }
   }, [userLocation]);
 
   useEffect(() => {
-    if (!mapRef.current || !window.google?.maps) {
+    if (
+      !mapRef.current ||
+      !window.google?.maps ||
+      !markerLibraryRef.current?.AdvancedMarkerElement
+    ) {
       return;
     }
 
-    const mapsApi = window.google.maps;
-
-    markersRef.current.forEach((marker) => marker.setMap(null));
+    markersRef.current.forEach((marker) => {
+      marker.map = null;
+    });
     markersRef.current = restaurants.map((restaurant) => {
       const isSelected = restaurant.id === selectedRestaurantId;
-      const marker = new mapsApi.Marker({
+      const marker = new markerLibraryRef.current.AdvancedMarkerElement({
         map: mapRef.current,
         position: { lat: restaurant.lat, lng: restaurant.lng },
         title: restaurant.name,
-        icon: createMarkerIcon(mapsApi, isSelected ? "#113322" : "#1f8f57"),
+        content: createMarkerContent(
+          markerLibraryRef.current,
+          isSelected ? "#113322" : "#1f8f57"
+        ),
       });
 
       marker.addListener("click", () => onSelectRestaurant(restaurant.id));

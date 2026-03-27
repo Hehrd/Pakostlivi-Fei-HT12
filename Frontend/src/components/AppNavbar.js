@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -74,8 +75,15 @@ export default function AppNavbar() {
           href={homeHref}
           className="inline-flex items-center gap-3 rounded-full border border-white/65 bg-white/80 px-4 py-2 text-sm font-semibold text-foreground shadow-[0_12px_30px_rgba(17,51,34,0.06)]"
         >
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary text-xs font-bold tracking-[0.2em] text-white">
-            MM
+          <span className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-primary/10 bg-white shadow-[0_8px_22px_rgba(17,51,34,0.08)]">
+            <Image
+              src="/logo.png"
+              alt="MunchMun logo"
+              width={40}
+              height={40}
+              className="h-full w-full object-cover"
+              priority
+            />
           </span>
           <span>MunchMun</span>
         </Link>
@@ -103,6 +111,18 @@ export default function AppNavbar() {
               }`}
             >
               Discover
+            </Link>
+          ) : null}
+          {isClient ? (
+            <Link
+              href="/reservations"
+              className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                pathname.startsWith("/reservations")
+                  ? "bg-primary text-white"
+                  : "text-foreground/72 hover:bg-white hover:text-foreground"
+              }`}
+            >
+              Reservations
             </Link>
           ) : null}
           {isRestaurant ? (
@@ -160,6 +180,14 @@ export default function AppNavbar() {
               >
                 Settings
               </Link>
+              {isClient ? (
+                <Link
+                  href="/reservations"
+                  className="block rounded-2xl px-3 py-2.5 text-sm font-medium text-foreground/78 transition hover:bg-primary-soft hover:text-foreground"
+                >
+                  My reservations
+                </Link>
+              ) : null}
               {isAdmin ? (
                 <Link
                   href="/admin/restaurants"

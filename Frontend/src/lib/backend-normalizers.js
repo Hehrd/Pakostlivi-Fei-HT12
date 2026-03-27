@@ -33,6 +33,14 @@ export function normalizeRestaurantRecord(restaurant, options = {}) {
     googleMapsUrl,
     listingCount: options.listingCount ?? restaurant?.listingCount ?? 0,
     distanceKm: options.distanceKm ?? restaurant?.distanceKm ?? 0,
+    ownerId:
+      options.ownerId ??
+      (restaurant?.ownerId !== undefined && restaurant?.ownerId !== null
+        ? String(restaurant.ownerId)
+        : ""),
+    ownerEmail: options.ownerEmail ?? restaurant?.ownerEmail ?? "",
+    ownerFirstName: options.ownerFirstName ?? restaurant?.ownerFirstName ?? "",
+    ownerLastName: options.ownerLastName ?? restaurant?.ownerLastName ?? "",
   };
 }
 
