@@ -19,6 +19,4 @@ public class FoodTagEntity {
 
     @Enumerated(EnumType.STRING)
     private FoodTagType type;
-
-
 }

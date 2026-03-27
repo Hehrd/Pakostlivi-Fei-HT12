@@ -48,6 +48,4 @@ public class AccountEntity {
             inverseJoinColumns = @JoinColumn(name = "food_tag_id")
     )
     private List<FoodTagEntity> foodTags = new ArrayList();
-
-
 }
