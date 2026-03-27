@@ -68,7 +68,6 @@ public class RestaurantController {
         PagedResponse<RestaurantResponseDto> page = restaurantService.getNearbyRestaurants(lat, lng, radiusKm, pageable);
         return ResponseEntity.ok(page);
     }
-
     @GetMapping("/{id}")
     public ResponseEntity<RestaurantResponseDto> getRestaurantById(@PathVariable(name = "id") Long id) {
 

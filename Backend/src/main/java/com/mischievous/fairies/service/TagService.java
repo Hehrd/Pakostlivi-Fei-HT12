@@ -17,7 +17,8 @@ public class TagService {
     private final FoodTagRepository foodTagRepository;
     private final AllergenRepository allergenRepository;
     
-    public TagService(FoodTagRepository foodTagRepository, AllergenRepository allergenRepository) {
+    public TagService(FoodTagRepository foodTagRepository,
+                      AllergenRepository allergenRepository) {
         this.foodTagRepository = foodTagRepository;
         this.allergenRepository = allergenRepository;
     }
@@ -52,6 +53,4 @@ public class TagService {
         dto.setType(foodTagEntity.getType());
         return dto;
     }
-
-
 }
