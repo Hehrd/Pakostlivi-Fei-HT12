@@ -3,3 +3,6 @@ env.properties
 **/target/*
 .DS_Store
 **/.github/*
+
+
+venv/
