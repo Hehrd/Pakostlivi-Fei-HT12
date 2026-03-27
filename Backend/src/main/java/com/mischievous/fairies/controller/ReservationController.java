@@ -27,18 +27,19 @@ public class ReservationController {
     @PostMapping
     public ResponseEntity<Long> createReservation(@RequestBody SaveReservationReqDTO saveReservationReqDTO,
                                                   Authentication authentication) {
-        Long foodSaleId = reservationService.saveReservation(saveReservationReqDTO.getFoodSaleId(), authentication);
+        Long reservationId = reservationService.saveReservation(saveReservationReqDTO.getFoodSaleId(), authentication);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(foodSaleId);
+                .body(reservationId);
     }
 
     @GetMapping("/{reservationId}")
-    public ResponseEntity<GetReservationDTO> getReservation(@PathVariable Long reservationId) {
-        Long clientId = SecurityUtils.getCurrentUserId();
-        GetReservationDTO getReservationDTO = reservationService.getReservation(reservationId, clientId);
+    public ResponseEntity<GetReservationDTO> getReservation(@PathVariable(name = "reservationId") Long reservationId,
+                                                            Authentication authentication) {
+        GetReservationDTO getReservationDTO = reservationService.getReservation(reservationId, authentication);
 
         return ResponseEntity.ok(getReservationDTO);
     }
+
 }

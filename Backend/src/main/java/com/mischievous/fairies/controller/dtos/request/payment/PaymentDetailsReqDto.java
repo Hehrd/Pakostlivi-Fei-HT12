@@ -5,5 +5,5 @@ import lombok.Data;
 @Data
 public class PaymentDetailsReqDto {
     private long amount;
-    private Long restaurantId;
+    private Long foodSaleId;
 }

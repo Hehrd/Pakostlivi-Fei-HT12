@@ -9,11 +9,11 @@ import com.mischievous.fairies.controller.dtos.response.restaurant.RestaurantRes
 import com.mischievous.fairies.persistence.model.AccountEntity;
 import com.mischievous.fairies.persistence.model.RestaurantEntity;
 import com.mischievous.fairies.persistence.model.StripeAccountEntity;
-import com.mischievous.fairies.persistence.repository.AccountRepository;
 import com.mischievous.fairies.persistence.repository.RestaurantRepository;
 import com.mischievous.fairies.persistence.repository.StripeAccountRepository;
 import com.mischievous.fairies.persistence.status.AccountRole;
 import com.stripe.exception.StripeException;
+import com.stripe.model.Account;
 import com.stripe.model.AccountLink;
 import com.stripe.param.AccountLinkCreateParams;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -202,8 +202,13 @@ public class RestaurantService {
 //        AccountEntity account = accountRepository.findById(userid)
 //                .orElseThrow(() -> new UserNotExistingException("User with id: " + userid + " not found" ));
         RestaurantEntity restaurant = restaurantRepository.findByOwner_Id(userid).orElseThrow(() -> new RestaurantNotFoundException("Restaurant with owner id " + userid + " not found"));
+        if (isStripeAccountActive(restaurant.getStripeAccount().getStripeAccountId())) {
+            restaurant.getStripeAccount().setActive(true);
+            restaurantRepository.save(restaurant);
+            return null;
+        }
         StripeAccountEntity stripeAccount = new StripeAccountEntity();
-        stripeAccount.setStripeAccountId(stripeService.createBusinessAccount(authenticatedUser.email()));
+        stripeAccount.setStripeAccountId(stripeService.createBusinessAccount(authenticatedUser.email(), restaurant.getId()));
         stripeAccount.setActive(false);
         restaurant.setStripeAccount(stripeAccountRepository.save(stripeAccount));
 
@@ -213,11 +218,16 @@ public class RestaurantService {
     private String createAccountLink(String accountId) throws StripeException {
         AccountLinkCreateParams params = AccountLinkCreateParams.builder()
                 .setAccount(accountId)
-                .setRefreshUrl("http://localhost:3000/settings")
-                .setReturnUrl("http://localhost:3000/restaurant/listings")
+                .setRefreshUrl("/settings?stripe=refresh")
+                .setReturnUrl("/restaurant/food-sales?stripe=return")
                 .setType(AccountLinkCreateParams.Type.ACCOUNT_ONBOARDING)
                 .build();
         AccountLink accountLink = AccountLink.create(params);
         return accountLink.getUrl();
+    }
+
+    private boolean isStripeAccountActive(String stripeAccountId) throws StripeException {
+        Account account = Account.retrieve(stripeAccountId);
+        return account.getChargesEnabled() && account.getPayoutsEnabled() && account.getDetailsSubmitted();
     }
 }

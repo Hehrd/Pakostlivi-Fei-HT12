@@ -30,38 +30,10 @@ public class PaymentController {
     @PostMapping()
     public ResponseEntity<ClientSecretResDto> createPaymentIntent(
             @RequestBody PaymentDetailsReqDto paymentDetails) throws StripeException {
-        String clientSecret = stripeService.createPaymentIntent(paymentDetails );
+        String clientSecret = stripeService.createPaymentIntent(paymentDetails);
         return ResponseEntity.ok(new ClientSecretResDto(clientSecret));
     }
 
-    @PostMapping("/webhook")
-    public ResponseEntity<String> handleWebhook(
-            @RequestBody String payload,
-            @RequestHeader("Stripe-Signature") String sigHeader
-    ) {
-
-        try {
-            Event event = Webhook.constructEvent(payload, sigHeader, webhookSecret);
-
-            switch (event.getType()) {
-                case "payment_intent.succeeded":
-                    // handle success (e.g. mark order paid)
-                    break;
-
-                case "payment_intent.payment_failed":
-                    // handle failure
-                    break;
-
-                default:
-                    break;
-            }
-
-            return ResponseEntity.ok("success");
-
-        } catch (SignatureVerificationException e) {
-            return ResponseEntity.badRequest().body("Invalid signature");
-        }
-    }
 
     @Data
     @AllArgsConstructor

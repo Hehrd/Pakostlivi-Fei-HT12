@@ -14,6 +14,7 @@ import com.mischievous.fairies.persistence.repository.FoodSaleRepository;
 import com.mischievous.fairies.persistence.repository.ReservationRepository;
 import com.mischievous.fairies.persistence.repository.RestaurantRepository;
 import com.mischievous.fairies.persistence.status.AccountRole;
+import com.mischievous.fairies.persistence.status.ReservationStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
@@ -55,17 +56,18 @@ public class ReservationService {
         reservation.setAccount(accountEntity);
         reservation.setIssuedAt(issuedAt);
         reservation.setExpiresAt(issuedAt.plus(1, ChronoUnit.HOURS));
-
+        reservation.setStatus(ReservationStatus.UNPAID);
         reservationRepository.save(reservation);
 
         return reservation.getId();
     }
 
-    public GetReservationDTO getReservation(Long reservationId, Long clientId) {
+    public GetReservationDTO getReservation(Long reservationId, Authentication authentication) {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
         ReservationEntity reservationEntity = reservationRepository.findById(reservationId)
                 .orElseThrow(() -> new ReservationNotFoundException("Reservation not found"));
 
-        if (!reservationEntity.getAccount().getId().equals(clientId)) {
+        if (!reservationEntity.getAccount().getId().equals(authenticatedUser.userId())) {
             throw new ReservationNotFoundException("Reservation not found");
         }
 
@@ -75,5 +77,9 @@ public class ReservationService {
         getReservationDTO.setExpires_at(reservationEntity.getExpiresAt());
 
         return getReservationDTO;
+    }
+
+    public void deleteReservation(Long id) {
+        reservationRepository.deleteById(id);
     }
 }

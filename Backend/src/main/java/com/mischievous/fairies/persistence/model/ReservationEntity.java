@@ -1,5 +1,6 @@
 package com.mischievous.fairies.persistence.model;
 
+import com.mischievous.fairies.persistence.status.ReservationStatus;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -29,4 +30,10 @@ public class ReservationEntity {
     @ManyToOne
     @JoinColumn(name = "account_id", nullable = false)
     private AccountEntity account;
+
+    @Column(nullable = false)
+    private ReservationStatus status;
+
+    @Column
+    private String paymentIntentId;
 }
