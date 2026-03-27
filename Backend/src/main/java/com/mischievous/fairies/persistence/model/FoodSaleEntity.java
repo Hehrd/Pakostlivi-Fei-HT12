@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.sql.Date;
+import java.time.Instant;
 
 @Entity
 @Table(name = "food_sales")
@@ -22,11 +23,14 @@ public class FoodSaleEntity {
     private FoodEntity food;
 
     @Column
-    private Long price;
+    private double price;
 
     @Column
-    private Date issuedAt;
+    private int quantity;
 
     @Column
-    private Date expiresAt;
+    private Instant issuedAt;
+
+    @Column
+    private Instant expiresAt;
 }

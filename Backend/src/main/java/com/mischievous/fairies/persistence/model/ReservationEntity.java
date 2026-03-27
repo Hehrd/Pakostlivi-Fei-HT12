@@ -13,11 +13,14 @@ public class ReservationEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private Instant issued_at;
+    @Column
+    private int quantity;
 
     @Column(nullable = false)
-    private Instant expires_at;
+    private Instant issuedAt;
+
+    @Column(nullable = false)
+    private Instant expiresAt;
 
     @ManyToOne
     @JoinColumn(name = "food_sale_id", nullable = false)

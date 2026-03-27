@@ -9,6 +9,7 @@ import com.mischievous.fairies.controller.dtos.request.user.UserReqLogInDTO;
 import com.mischievous.fairies.controller.dtos.response.user.CurrentUserDTO;
 import com.mischievous.fairies.controller.dtos.response.user.UserProfileResDto;
 import com.mischievous.fairies.controller.dtos.response.user.UserResLogInDTO;
+import com.mischievous.fairies.persistence.status.AccountRole;
 import com.mischievous.fairies.service.AuthCookieService;
 import com.mischievous.fairies.service.AccountService;
 import jakarta.servlet.http.HttpServletResponse;
@@ -41,7 +42,7 @@ public class UserAccountController {
 
     @PostMapping("/signup")
     public ResponseEntity<Map<String, Boolean>> signUp(@Valid @RequestBody SignUpReqDTO signUpReqDTO) throws EmailAlreadyInUseException {
-        Map<String, Boolean> response = accountService.signUp(signUpReqDTO);
+        Map<String, Boolean> response = accountService.signUp(signUpReqDTO, AccountRole.CLIENT);
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(response);
