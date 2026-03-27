@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useAuth } from "@/components/AuthProvider";
@@ -60,6 +60,7 @@ function PreferenceChip({ active, children, disabled = false, onClick }) {
 
 export default function SettingsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, isAuthLoading, setCurrentUser } = useAuth();
   const [availableAllergens, setAvailableAllergens] = useState([]);
   const [availableFoodTags, setAvailableFoodTags] = useState([]);
@@ -107,6 +108,7 @@ export default function SettingsPage() {
     : isRestaurant
       ? "Back to food sales"
       : "Back to home";
+  const stripeFlowState = searchParams.get("stripe");
 
   const savedAllergensKey = useMemo(
     () => (user?.allergens ?? []).slice().sort().join("|"),
@@ -263,6 +265,12 @@ export default function SettingsPage() {
     try {
       const payload = await startRestaurantStripeOnboarding();
 
+      if (payload?.alreadyConnected) {
+        toast.success("Stripe account already connected.");
+        router.replace("/restaurant/food-sales?stripe=return");
+        return;
+      }
+
       if (!payload?.url) {
         throw {
           status: 400,
@@ -279,6 +287,30 @@ export default function SettingsPage() {
       setIsStartingStripeOnboarding(false);
     }
   }
+
+  const restartStripeOnboarding = useEffectEvent(async () => {
+    await handleStartStripeOnboarding();
+  });
+
+  useEffect(() => {
+    if (
+      !user ||
+      !isRestaurant ||
+      isStripeConnectUnavailable ||
+      stripeFlowState !== "refresh" ||
+      isStartingStripeOnboarding
+    ) {
+      return;
+    }
+
+    restartStripeOnboarding();
+  }, [
+    isRestaurant,
+    isStartingStripeOnboarding,
+    isStripeConnectUnavailable,
+    stripeFlowState,
+    user,
+  ]);
 
   if (isAuthLoading || !user) {
     return null;
@@ -341,13 +373,14 @@ export default function SettingsPage() {
             <SettingsCard
               eyebrow="Stripe"
               title="Connect your payout account"
-              description="This frontend currently assumes your restaurant account still needs Stripe onboarding, so the connect action is always available here."
+              description="This frontend currently assumes your restaurant account might still need Stripe onboarding, so the connect action stays available here."
             >
               <div className="space-y-4">
                 <div className="rounded-[1.4rem] border border-border bg-surface-muted/65 p-4 text-sm leading-7 text-foreground/68">
                   Stripe handles the account connection flow on its hosted page.
                   If Stripe sends you back here because the onboarding link
-                  expired, press the button again to generate a fresh link.
+                  expired, this page will try to generate a fresh link
+                  automatically.
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <button

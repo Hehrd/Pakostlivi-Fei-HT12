@@ -236,8 +236,9 @@ export default function ReservationsPage() {
                 Track the meals you already reserved.
               </h1>
               <p className="max-w-2xl text-sm leading-7 text-white/80 sm:text-base">
-                Use this page as your current reservation hub. Stripe payment
-                will be added later, so reservations are tracked here first.
+                Use this page as your reservation hub after checkout. Stripe
+                payment status is saved here together with your current meal
+                holds on this device.
               </p>
             </div>
           </section>
@@ -283,7 +284,8 @@ export default function ReservationsPage() {
               </h2>
               <p className="text-sm leading-7 text-foreground/66">
                 Reservations stay here so users have a dedicated place to review
-                meal holds before payment is wired through Stripe.
+                paid meals and any holds that are still waiting on payment or
+                pickup.
               </p>
             </div>
             <Link

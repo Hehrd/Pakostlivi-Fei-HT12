@@ -126,6 +126,13 @@ export async function refreshStoredReservations(user) {
           ...reservation,
           issuedAt: payload?.issued_at ?? reservation.issuedAt ?? "",
           expiresAt: payload?.expires_at ?? reservation.expiresAt ?? "",
+          status: payload?.status ?? reservation.status ?? "UNPAID",
+          paymentStatus:
+            payload?.status === "PAID"
+              ? "Paid with Stripe"
+              : payload?.status === "UNPAID"
+                ? "Awaiting Stripe payment"
+                : reservation.paymentStatus ?? "Payment status unavailable",
         };
       } catch {
         return reservation;
@@ -136,7 +143,39 @@ export async function refreshStoredReservations(user) {
   return replaceStoredReservations(user, refreshedReservations);
 }
 
+export async function createReservation(foodSaleId) {
+  return apiFetch("/reservations", {
+    method: "POST",
+    body: {
+      foodSaleId: Number(foodSaleId),
+    },
+  });
+}
+
+export async function fetchReservationDetails(reservationId) {
+  return apiFetch(`/reservations/${reservationId}`);
+}
+
+export async function createStripePaymentIntent({ reservationId, amount }) {
+  const payload = await apiFetch("/payments", {
+    method: "POST",
+    body: {
+      reservationId: Number(reservationId),
+      amount: Number(amount),
+    },
+  });
+
+  return {
+    clientSecret: payload?.clientSecret ?? "",
+  };
+}
+
 export function createReservationRecord(foodSale, payload) {
+  const reservationStatus =
+    payload?.reservation?.status ??
+    payload?.foodSale?.currentUsersReservation?.status ??
+    "UNPAID";
+
   return {
     id:
       payload?.reservation?.id ??
@@ -165,11 +204,13 @@ export function createReservationRecord(foodSale, payload) {
     totalPrice: Number(
       payload?.reservation?.totalPrice ?? Number(foodSale?.price ?? 0)
     ),
-    status:
-      payload?.reservation?.status ??
-      payload?.foodSale?.currentUsersReservation?.status ??
-      "CONFIRMED",
-    paymentStatus: "Stripe integration coming soon",
+    status: reservationStatus,
+    paymentStatus:
+      reservationStatus === "PAID"
+        ? "Paid with Stripe"
+        : reservationStatus === "UNPAID"
+          ? "Awaiting Stripe payment"
+          : "Payment status unavailable",
   };
 }
 

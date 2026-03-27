@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useAuth } from "@/components/AuthProvider";
@@ -185,6 +185,7 @@ function buildFormStateFromFoodSale(foodSale) {
 
 export default function RestaurantFoodSalesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, isAuthLoading } = useAuth();
   const [restaurants, setRestaurants] = useState([]);
   const [selectedRestaurantId, setSelectedRestaurantId] = useState("");
@@ -214,6 +215,7 @@ export default function RestaurantFoodSalesPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSavingRestaurant, setIsSavingRestaurant] = useState(false);
   const [apiNotice, setApiNotice] = useState("");
+  const stripeFlowState = searchParams.get("stripe");
 
   const selectedFoodSale = useMemo(
     () => foodSales.find((foodSale) => foodSale.id === selectedFoodSaleId) ?? null,
@@ -389,6 +391,18 @@ export default function RestaurantFoodSalesPage() {
       loadWorkspace();
     }
   }, [isPageLoading, selectedRestaurantId, user]);
+
+  useEffect(() => {
+    if (!user || !isRestaurantUser(user) || stripeFlowState !== "return") {
+      return;
+    }
+
+    toast.success("Returned from Stripe onboarding.", {
+      description:
+        "If Stripe still needs more details later, you can reopen onboarding from Settings.",
+    });
+    router.replace("/restaurant/food-sales");
+  }, [router, stripeFlowState, user]);
 
   async function handleSubmit(event) {
     event.preventDefault();

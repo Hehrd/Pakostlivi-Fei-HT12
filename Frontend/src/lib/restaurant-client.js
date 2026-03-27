@@ -288,10 +288,22 @@ export async function startRestaurantStripeOnboarding() {
 
   if (
     (response.ok || (response.status >= 300 && response.status < 400)) &&
+    !onboardingUrl &&
+    !message
+  ) {
+    return {
+      url: null,
+      alreadyConnected: true,
+    };
+  }
+
+  if (
+    (response.ok || (response.status >= 300 && response.status < 400)) &&
     onboardingUrl
   ) {
     return {
       url: onboardingUrl,
+      alreadyConnected: false,
     };
   }
 

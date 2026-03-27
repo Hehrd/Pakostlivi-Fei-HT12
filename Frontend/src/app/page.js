@@ -6,7 +6,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useAuth } from "@/components/AuthProvider";
+import StripePaymentDialog from "@/components/StripePaymentDialog";
 import GoogleRestaurantsMap from "@/components/GoogleRestaurantsMap";
+import { API_MODE } from "@/lib/api";
 import {
   getAllergens,
   getFoodTags,
@@ -20,8 +22,12 @@ import {
 } from "@/lib/home-client";
 import {
   createReservationRecord,
+  createReservation,
+  createStripePaymentIntent,
+  fetchReservationDetails,
   saveStoredReservation,
 } from "@/lib/reservation-client";
+import { currencyValueToCents } from "@/lib/price";
 
 const DEFAULT_LOCATION = {
   lat: 42.6977,
@@ -30,6 +36,9 @@ const DEFAULT_LOCATION = {
 
 const RESTAURANTS_FETCH_LIMIT = 24;
 const FOOD_SALES_PER_PAGE = 6;
+const HAS_STRIPE_PUBLISHABLE_KEY = Boolean(
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+);
 
 function formatReservationExpiry(expiresAt) {
   if (!expiresAt) {
@@ -271,7 +280,7 @@ function FoodSaleCard({
             </>
           ) : (
             <span className="text-xs text-foreground/58">
-              Tap the card or use reserve to hold this meal.
+              Tap the card or use pay to start checkout for this meal.
             </span>
           )}
         </div>
@@ -292,8 +301,8 @@ function FoodSaleCard({
           {foodSale.isReservedByCurrentUser
             ? "Reserved"
             : isReserving
-              ? "Reserving..."
-              : "Reserve"}
+              ? "Starting checkout..."
+              : "Pay & reserve"}
         </button>
       </div>
     </article>
@@ -413,6 +422,7 @@ export default function HomePage() {
     useState(false);
   const [reservingFoodSaleId, setReservingFoodSaleId] = useState(null);
   const [latestReservation, setLatestReservation] = useState(null);
+  const [pendingStripeCheckout, setPendingStripeCheckout] = useState(null);
   const [isAllergenMenuOpen, setIsAllergenMenuOpen] = useState(false);
   const [isSavingAllergens, setIsSavingAllergens] = useState(false);
   const [foodSalesPagination, setFoodSalesPagination] = useState({
@@ -803,27 +813,68 @@ export default function HomePage() {
       return;
     }
 
+    if (API_MODE === "real" && !HAS_STRIPE_PUBLISHABLE_KEY) {
+      toast.error("Stripe is not configured on the frontend.", {
+        description:
+          "Add NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY to the frontend environment and reload the app.",
+      });
+      return;
+    }
+
     setReservingFoodSaleId(foodSale.id);
 
     try {
-      const payload = await reserveFoodSale(foodSale.id);
-      const reservationRecord = createReservationRecord(foodSale, payload);
+      if (API_MODE === "mock") {
+        const payload = await reserveFoodSale(foodSale.id);
+        const reservationRecord = createReservationRecord(foodSale, payload);
 
-      saveStoredReservation(user, reservationRecord);
-      applyReservedFoodSaleUpdate(foodSale.id, payload?.foodSale);
-      setLatestReservation(reservationRecord);
+        saveStoredReservation(user, reservationRecord);
+        applyReservedFoodSaleUpdate(foodSale.id, payload?.foodSale);
+        setLatestReservation(reservationRecord);
 
-      toast.success("Food sale reserved.", {
-        description:
-          payload?.reservation?.pickupCode
-            ? `Pickup code ${payload.reservation.pickupCode}. Pickup window ${payload.reservation.pickupWindow}.`
-            : payload?.reservation?.expiresAt
-              ? `Reservation created. It currently expires at ${new Date(payload.reservation.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`
-              : `Pickup window ${payload?.reservation?.pickupWindow ?? foodSale.pickupWindow}.`,
+        toast.success("Food sale reserved.", {
+          description:
+            payload?.reservation?.pickupCode
+              ? `Pickup code ${payload.reservation.pickupCode}. Pickup window ${payload.reservation.pickupWindow}.`
+              : payload?.reservation?.expiresAt
+                ? `Reservation created. It currently expires at ${new Date(payload.reservation.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`
+                : `Pickup window ${payload?.reservation?.pickupWindow ?? foodSale.pickupWindow}.`,
+        });
+        return;
+      }
+
+      const reservationId = await createReservation(foodSale.id);
+      const reservationDetails = await fetchReservationDetails(reservationId);
+      const paymentIntent = await createStripePaymentIntent({
+        reservationId,
+        amount: currencyValueToCents(foodSale.price),
       });
+
+      if (!paymentIntent?.clientSecret) {
+        throw {
+          status: 400,
+          message: "The backend did not return a Stripe client secret.",
+        };
+      }
+
+      setPendingStripeCheckout({
+        clientSecret: paymentIntent.clientSecret,
+        foodSale,
+        reservation: {
+          id: reservationId,
+          issuedAt: reservationDetails?.issued_at ?? "",
+          expiresAt: reservationDetails?.expires_at ?? "",
+          quantity: 1,
+          status: reservationDetails?.status ?? "UNPAID",
+        },
+      });
+      toast.success("Reservation created.", {
+        description: "Complete the Stripe payment to confirm this food sale.",
+      });
+      return;
     } catch (error) {
       toast.error(
-        error.status === 409 ? "Already reserved." : "Unable to reserve food sale.",
+        error.status === 409 ? "Already reserved." : "Unable to start checkout.",
         {
           description: error.message || "Please try again.",
         }
@@ -831,6 +882,44 @@ export default function HomePage() {
     } finally {
       setReservingFoodSaleId(null);
     }
+  }
+
+  async function handleStripeCheckoutSuccess(paymentIntent) {
+    if (!pendingStripeCheckout) {
+      return;
+    }
+
+    const reservationRecord = createReservationRecord(
+      pendingStripeCheckout.foodSale,
+      {
+        reservation: {
+          ...pendingStripeCheckout.reservation,
+          status:
+            paymentIntent?.status === "succeeded" ? "PAID" : "UNPAID",
+          totalPrice: Number(pendingStripeCheckout.foodSale?.price ?? 0),
+          quantity: 1,
+        },
+      }
+    );
+
+    saveStoredReservation(user, reservationRecord);
+    applyReservedFoodSaleUpdate(pendingStripeCheckout.foodSale.id, {
+      id: pendingStripeCheckout.foodSale.id,
+      isReservedByCurrentUser: true,
+      currentUsersReservation: {
+        id: pendingStripeCheckout.reservation.id,
+        status: reservationRecord.status,
+      },
+    });
+    setLatestReservation(reservationRecord);
+    setPendingStripeCheckout(null);
+
+    toast.success("Payment completed.", {
+      description:
+        paymentIntent?.status === "succeeded"
+          ? "Your food sale is now reserved and paid through Stripe."
+          : "Your payment is processing. The reservation has been created.",
+    });
   }
 
   async function handleSaveAllergens() {
@@ -1222,6 +1311,12 @@ export default function HomePage() {
           />
         </div>
       </section>
+      <StripePaymentDialog
+        checkout={pendingStripeCheckout}
+        user={user}
+        onClose={() => setPendingStripeCheckout(null)}
+        onSuccess={handleStripeCheckoutSuccess}
+      />
     </main>
   );
 }
