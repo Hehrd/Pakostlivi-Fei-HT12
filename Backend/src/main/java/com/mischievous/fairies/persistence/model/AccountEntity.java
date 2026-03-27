@@ -33,21 +33,5 @@ public class AccountEntity {
     @Column(nullable = false, length = 255)
     private String passwordHash;
 
-    @ManyToMany
-    @JoinTable(
-            name = "profile_allergens",
-            joinColumns = @JoinColumn(name = "profile_id"),
-            inverseJoinColumns = @JoinColumn(name = "allergen_id")
-    )
-    private List<AllergenEntity> allergens = new ArrayList();
-
-    @ManyToMany
-    @JoinTable(
-            name = "profile_food_tags",
-            joinColumns = @JoinColumn(name = "profile_id"),
-            inverseJoinColumns = @JoinColumn(name = "food_tag_id")
-    )
-    private List<FoodTagEntity> foodTags = new ArrayList();
-
 
 }

@@ -5,6 +5,9 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Entity
 @Table(name = "profiles")
 @Data
@@ -27,4 +30,20 @@ public class ProfileEntity {
     @OneToOne
     @JoinColumn(name = "account_id", nullable = false, unique = true)
     private AccountEntity account;
+
+    @ManyToMany
+    @JoinTable(
+            name = "profile_allergens",
+            joinColumns = @JoinColumn(name = "profile_id"),
+            inverseJoinColumns = @JoinColumn(name = "allergen_id")
+    )
+    private List<AllergenEntity> allergens = new ArrayList();
+
+    @ManyToMany
+    @JoinTable(
+            name = "profile_food_tags",
+            joinColumns = @JoinColumn(name = "profile_id"),
+            inverseJoinColumns = @JoinColumn(name = "food_tag_id")
+    )
+    private List<FoodTagEntity> foodTags = new ArrayList();
 }
