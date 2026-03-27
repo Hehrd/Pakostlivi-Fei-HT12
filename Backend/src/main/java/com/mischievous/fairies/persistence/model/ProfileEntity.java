@@ -24,11 +24,7 @@ public class ProfileEntity {
     @Column(nullable = true)
     private String profilePictureUrl;
 
-
-
     @OneToOne
     @JoinColumn(name = "account_id", nullable = false, unique = true)
     private AccountEntity account;
-
-
 }

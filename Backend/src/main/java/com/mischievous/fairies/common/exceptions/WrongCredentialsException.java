@@ -5,6 +5,6 @@ import org.springframework.http.HttpStatus;
 
 public class WrongCredentialsException extends CustomException {
     public WrongCredentialsException(String message) {
-        super(message, HttpStatus.CONFLICT);
+        super(message, HttpStatus.NOT_FOUND);
     }
 }
