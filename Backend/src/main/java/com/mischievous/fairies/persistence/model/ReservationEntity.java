@@ -32,6 +32,7 @@ public class ReservationEntity {
     private AccountEntity account;
 
     @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
     private ReservationStatus status;
 
     @Column

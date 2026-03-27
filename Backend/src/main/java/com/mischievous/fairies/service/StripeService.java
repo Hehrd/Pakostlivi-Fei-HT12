@@ -3,10 +3,13 @@ package com.mischievous.fairies.service;
 import com.mischievous.fairies.common.exceptions.InvalidStripeAccountException;
 import com.mischievous.fairies.common.exceptions.JsonDeserializationException;
 import com.mischievous.fairies.common.exceptions.ReservationNotFoundException;
+import com.mischievous.fairies.common.exceptions.RestaurantNotFoundException;
 import com.mischievous.fairies.controller.dtos.request.payment.PaymentDetailsReqDto;
 import com.mischievous.fairies.persistence.model.ReservationEntity;
+import com.mischievous.fairies.persistence.model.RestaurantEntity;
 import com.mischievous.fairies.persistence.model.StripeAccountEntity;
 import com.mischievous.fairies.persistence.repository.ReservationRepository;
+import com.mischievous.fairies.persistence.repository.RestaurantRepository;
 import com.mischievous.fairies.persistence.repository.StripeAccountRepository;
 import com.mischievous.fairies.persistence.status.ReservationStatus;
 import com.stripe.Stripe;
@@ -24,6 +27,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class StripeService {
@@ -33,13 +37,15 @@ public class StripeService {
     private static final long MUNCHMAN_CUT_PERCENTAGE = 5L;
 
     private final StripeAccountRepository stripeAccountRepository;
+    private final RestaurantRepository restaurantRepository;
     private final ReservationRepository reservationRepository;
 
     public StripeService(@Value("${stripe.secret-key}") String stripeSecretKey,
                          @Value("${stripe.webhook.secret}") String webhookSecret,
-                         StripeAccountRepository stripeAccountRepository, ReservationRepository reservationRepository) {
+                         StripeAccountRepository stripeAccountRepository, RestaurantRepository restaurantRepository, ReservationRepository reservationRepository) {
         this.stripeAccountRepository = stripeAccountRepository;
         this.WEBHOOK_SECRET = webhookSecret;
+        this.restaurantRepository = restaurantRepository;
         this.reservationRepository = reservationRepository;
         Stripe.apiKey = stripeSecretKey;
     }
@@ -83,11 +89,12 @@ public class StripeService {
         ReservationEntity reservationEntity = reservationRepository.findById(paymentDetails.getFoodSaleId())
                 .orElseThrow(() -> new ReservationNotFoundException("Reservation not found for ID: " + paymentDetails.getFoodSaleId()));
         Long restaurantId = reservationEntity.getFoodSaleEntity().getFood().getRestaurant().getId();
-        Optional<StripeAccountEntity> stripeAccountEntityOptional = stripeAccountRepository.findByRestaurant_Id(restaurantId);
-        if (stripeAccountEntityOptional.isEmpty() || !stripeAccountEntityOptional.get().isActive()) {
+        RestaurantEntity restaurantEntity = restaurantRepository.findById(restaurantId)
+                .orElseThrow(() -> new RestaurantNotFoundException("Restaurant not found for ID: " + restaurantId));
+        StripeAccountEntity stripeAccountEntity = restaurantEntity.getStripeAccount();
+        if (stripeAccountEntity == null || stripeAccountEntity.isActive()) {
             throw new InvalidStripeAccountException("Stripe account not found for restaurant ID: " + restaurantId);
         }
-        StripeAccountEntity stripeAccountEntity = stripeAccountEntityOptional.get();
         validateAmount(paymentDetails);
         long amount = paymentDetails.getAmount();
         long platformFee = calculatePlatformFee(amount);
@@ -122,7 +129,7 @@ public class StripeService {
                 .build();
 
         RequestOptions requestOptions = RequestOptions.builder()
-                .setIdempotencyKey(String.valueOf(restaurantId))
+                .setIdempotencyKey(String.valueOf(restaurantId) + UUID.randomUUID().toString())
                 .build();
 
         Account account = Account.create(params, requestOptions);

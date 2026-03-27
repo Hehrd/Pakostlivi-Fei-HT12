@@ -201,8 +201,10 @@ public class RestaurantService {
         Long userid = authenticatedUser.userId();
 //        AccountEntity account = accountRepository.findById(userid)
 //                .orElseThrow(() -> new UserNotExistingException("User with id: " + userid + " not found" ));
-        RestaurantEntity restaurant = restaurantRepository.findByOwner_Id(userid).orElseThrow(() -> new RestaurantNotFoundException("Restaurant with owner id " + userid + " not found"));
-        if (isStripeAccountActive(restaurant.getStripeAccount().getStripeAccountId())) {
+        RestaurantEntity restaurant = restaurantRepository.findByOwner_Id(userid)
+                .orElseThrow(() -> new RestaurantNotFoundException("Restaurant with owner id " + userid + " not found"));
+        StripeAccountEntity stripeAccountEntity = restaurant.getStripeAccount();
+        if (stripeAccountEntity != null && isStripeAccountActive(restaurant.getStripeAccount().getStripeAccountId())) {
             restaurant.getStripeAccount().setActive(true);
             restaurantRepository.save(restaurant);
             return null;
@@ -210,16 +212,16 @@ public class RestaurantService {
         StripeAccountEntity stripeAccount = new StripeAccountEntity();
         stripeAccount.setStripeAccountId(stripeService.createBusinessAccount(authenticatedUser.email(), restaurant.getId()));
         stripeAccount.setActive(false);
-        restaurant.setStripeAccount(stripeAccountRepository.save(stripeAccount));
-
+        restaurant.setStripeAccount(stripeAccount);
+        restaurantRepository.save(restaurant);
         return createAccountLink(stripeAccount.getStripeAccountId());
     }
 
     private String createAccountLink(String accountId) throws StripeException {
         AccountLinkCreateParams params = AccountLinkCreateParams.builder()
                 .setAccount(accountId)
-                .setRefreshUrl("/settings?stripe=refresh")
-                .setReturnUrl("/restaurant/food-sales?stripe=return")
+                .setRefreshUrl("http://localhost:3000/settings?stripe=refresh")
+                .setReturnUrl("http://localhost:3000/restaurant/food-sales?stripe=return")
                 .setType(AccountLinkCreateParams.Type.ACCOUNT_ONBOARDING)
                 .build();
         AccountLink accountLink = AccountLink.create(params);
