@@ -1,0 +1,5 @@
+ALLOWED_TAGS = {
+    "RICE", "SOUP", "MEAT", "FISH", "EGGS", "CHEESE",
+    "POTATO", "ONION", "GARLIC", "BREAD", "SALAD",
+    "SEAFOOD", "NOODLES", "LENTILS", "BEANS"
+}

@@ -3,7 +3,7 @@ package com.mischievous.fairies.persistence.status;
 public enum FoodTagType {
     RICE,
     SOUP,
-    BEEF,
+    MEAT,
     FISH,
     EGGS,
     CHEESE,
