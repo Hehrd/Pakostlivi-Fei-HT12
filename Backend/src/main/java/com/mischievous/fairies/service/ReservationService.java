@@ -53,8 +53,8 @@ public class ReservationService {
         ReservationEntity reservation = new ReservationEntity();
         reservation.setFoodSaleEntity(foodSaleEntity);
         reservation.setAccount(accountEntity);
-        reservation.setIssued_at(issuedAt);
-        reservation.setExpires_at(issuedAt.plus(1, ChronoUnit.HOURS));
+        reservation.setIssuedAt(issuedAt);
+        reservation.setExpiresAt(issuedAt.plus(1, ChronoUnit.HOURS));
 
         reservationRepository.save(reservation);
 
@@ -71,8 +71,8 @@ public class ReservationService {
 
         GetReservationDTO getReservationDTO = new GetReservationDTO();
         getReservationDTO.setReservationId(reservationEntity.getId());
-        getReservationDTO.setIssued_at(reservationEntity.getIssued_at());
-        getReservationDTO.setExpires_at(reservationEntity.getExpires_at());
+        getReservationDTO.setIssued_at(reservationEntity.getIssuedAt());
+        getReservationDTO.setExpires_at(reservationEntity.getExpiresAt());
 
         return getReservationDTO;
     }

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { loadGoogleMaps } from "@/lib/google-maps";
 import {
   createRestaurant,
   deleteRestaurant,
@@ -15,10 +16,101 @@ import { useAuth } from "@/components/AuthProvider";
 
 const EMPTY_FORM = {
   name: "",
-  lat: "",
-  lng: "",
+  locationInput: "",
+  resolvedLat: "",
+  resolvedLng: "",
   googleMapsUrl: "",
 };
+
+function isLikelyUrl(value) {
+  return /^https?:\/\//i.test(value.trim());
+}
+
+function extractCoordinatesFromMapsLink(value) {
+  const input = value.trim();
+
+  if (!input) {
+    return null;
+  }
+
+  const patterns = [
+    /@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/,
+    /!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/,
+    /[?&]q=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/,
+    /[?&]ll=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/,
+    /[?&]center=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = input.match(pattern);
+
+    if (match) {
+      return {
+        lat: Number(match[1]),
+        lng: Number(match[2]),
+      };
+    }
+  }
+
+  return null;
+}
+
+function isShortGoogleMapsLink(value) {
+  try {
+    const url = new URL(value.trim());
+
+    return /(^|\.)maps\.app\.goo\.gl$/i.test(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
+async function geocodeLocationInput(locationInput) {
+  const trimmedInput = locationInput.trim();
+
+  if (!trimmedInput) {
+    throw new Error("Add a Google Maps link first.");
+  }
+
+  if (!isLikelyUrl(trimmedInput)) {
+    throw new Error("Paste a full Google Maps link.");
+  }
+
+  const parsedCoordinates = extractCoordinatesFromMapsLink(trimmedInput);
+
+  if (parsedCoordinates) {
+    return {
+      ...parsedCoordinates,
+      googleMapsUrl: trimmedInput,
+    };
+  }
+
+  if (isShortGoogleMapsLink(trimmedInput)) {
+    throw new Error(
+      "Short maps.app.goo.gl links do not expose coordinates to the browser. Open the place in Google Maps and paste the full expanded URL from the address bar."
+    );
+  }
+
+  const mapsApi = await loadGoogleMaps();
+  const geocoder = new mapsApi.Geocoder();
+  const geocodeResponse = await geocoder.geocode({
+    address: trimmedInput,
+  });
+  const result = geocodeResponse?.results?.[0];
+  const location = result?.geometry?.location;
+
+  if (!location) {
+    throw new Error(
+      "That Google Maps link does not include readable coordinates."
+    );
+  }
+
+  return {
+    lat: Number(location.lat().toFixed(6)),
+    lng: Number(location.lng().toFixed(6)),
+    googleMapsUrl: trimmedInput,
+  };
+}
 
 function AdminCard({ title, description, children }) {
   return (
@@ -53,7 +145,7 @@ function RestaurantRow({ restaurant, isEditing, onEdit, onDelete }) {
             rel="noreferrer"
             className="inline-flex text-sm font-medium text-primary hover:text-primary-strong"
           >
-            Open Google Maps
+            Google Maps
           </a>
           <p className="text-xs text-foreground/55">
             Coordinates: {restaurant.lat}, {restaurant.lng}
@@ -94,6 +186,8 @@ export default function AdminRestaurantsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeletingId, setIsDeletingId] = useState(null);
+  const [isResolvingLocation, setIsResolvingLocation] = useState(false);
+  const [locationStatus, setLocationStatus] = useState("");
 
   const isEditing = editingRestaurantId !== null;
   const totalListings = useMemo(
@@ -142,6 +236,7 @@ export default function AdminRestaurantsPage() {
   function resetForm() {
     setFormState({ ...EMPTY_FORM });
     setEditingRestaurantId(null);
+    setLocationStatus("");
   }
 
   function handleEdit(restaurant) {
@@ -149,23 +244,133 @@ export default function AdminRestaurantsPage() {
     setFormState({
       ...EMPTY_FORM,
       name: restaurant.name ?? "",
-      lat: String(restaurant.lat ?? ""),
-      lng: String(restaurant.lng ?? ""),
+      locationInput: restaurant.googleMapsUrl ?? "",
+      resolvedLat: String(restaurant.lat ?? ""),
+      resolvedLng: String(restaurant.lng ?? ""),
       googleMapsUrl: restaurant.googleMapsUrl ?? "",
     });
+    setLocationStatus("");
   }
+
+  async function resolveLocation(locationInputOverride) {
+    const nextInput =
+      typeof locationInputOverride === "string"
+        ? locationInputOverride
+        : formState.locationInput;
+
+    setIsResolvingLocation(true);
+    setLocationStatus("Resolving Google Maps link...");
+
+    try {
+      const resolvedLocation = await geocodeLocationInput(nextInput);
+
+      setFormState((current) => ({
+        ...current,
+        resolvedLat: String(resolvedLocation.lat),
+        resolvedLng: String(resolvedLocation.lng),
+        googleMapsUrl: resolvedLocation.googleMapsUrl,
+      }));
+
+      setLocationStatus("Location resolved from Google Maps.");
+      return resolvedLocation;
+    } catch (error) {
+      setLocationStatus(error.message || "Unable to resolve the Google Maps link.");
+      toast.error("Unable to resolve location.", {
+        description: error.message || "Please try a different Google Maps link.",
+      });
+      return null;
+    } finally {
+      setIsResolvingLocation(false);
+    }
+  }
+
+  useEffect(() => {
+    const trimmedInput = formState.locationInput.trim();
+
+    if (!trimmedInput) {
+      setLocationStatus("");
+      setFormState((current) => {
+        if (
+          !current.resolvedLat &&
+          !current.resolvedLng &&
+          !current.googleMapsUrl
+        ) {
+          return current;
+        }
+
+        return {
+          ...current,
+          resolvedLat: "",
+          resolvedLng: "",
+          googleMapsUrl: "",
+        };
+      });
+      return;
+    }
+
+    if (!isLikelyUrl(trimmedInput)) {
+      setLocationStatus("Paste a full Google Maps link.");
+      setFormState((current) => {
+        if (
+          !current.resolvedLat &&
+          !current.resolvedLng &&
+          !current.googleMapsUrl
+        ) {
+          return current;
+        }
+
+        return {
+          ...current,
+          resolvedLat: "",
+          resolvedLng: "",
+          googleMapsUrl: "",
+        };
+      });
+      return;
+    }
+
+    if (trimmedInput === formState.googleMapsUrl && formState.resolvedLat && formState.resolvedLng) {
+      setLocationStatus("Location resolved from Google Maps.");
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      resolveLocation(trimmedInput);
+    }, 350);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    formState.googleMapsUrl,
+    formState.locationInput,
+    formState.resolvedLat,
+    formState.resolvedLng,
+  ]);
 
   async function handleSubmit(event) {
     event.preventDefault();
 
+    if (!formState.name.trim()) {
+      toast.error("Restaurant name is required.");
+      return;
+    }
+
     setIsSaving(true);
 
     try {
+      let resolvedLocation = null;
+      const parsedLat = Number(formState.resolvedLat);
+      const parsedLng = Number(formState.resolvedLng);
+
+      if (!Number.isFinite(parsedLat) || !Number.isFinite(parsedLng)) {
+        resolvedLocation = await geocodeLocationInput(formState.locationInput);
+      }
+
       const payload = {
         name: formState.name.trim(),
-        lat: Number(formState.lat),
-        lng: Number(formState.lng),
-        googleMapsUrl: formState.googleMapsUrl.trim(),
+        lat: resolvedLocation?.lat ?? parsedLat,
+        lng: resolvedLocation?.lng ?? parsedLng,
+        googleMapsUrl:
+          resolvedLocation?.googleMapsUrl ?? formState.googleMapsUrl.trim(),
       };
 
       const response = isEditing
@@ -295,7 +500,7 @@ export default function AdminRestaurantsPage() {
         <div className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
           <AdminCard
             title={isEditing ? "Edit restaurant" : "Create restaurant"}
-            description="Register restaurants using just the name, coordinates, and a Google Maps link. The customer-facing screens will use that location data immediately."
+            description="Register restaurants using the name plus a full Google Maps URL. Short maps.app.goo.gl links need to be expanded first."
           >
             <form className="space-y-4" onSubmit={handleSubmit}>
               <input
@@ -311,55 +516,58 @@ export default function AdminRestaurantsPage() {
                 className="w-full rounded-2xl border border-border bg-surface-muted px-4 py-3 text-sm outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
               />
               <input
-                type="url"
-                value={formState.googleMapsUrl ?? ""}
+                type="text"
+                value={formState.locationInput ?? ""}
                 onChange={(event) =>
                   setFormState((current) => ({
                     ...current,
-                    googleMapsUrl: event.target.value,
+                    locationInput: event.target.value,
                   }))
                 }
-                placeholder="Google Maps link"
+                placeholder="Full Google Maps URL"
                 className="w-full rounded-2xl border border-border bg-surface-muted px-4 py-3 text-sm outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
               />
+              {locationStatus ? (
+                <p className="text-sm text-foreground/62">{locationStatus}</p>
+              ) : null}
               <div className="grid gap-3 sm:grid-cols-2">
                 <input
-                  type="number"
-                  step="0.0001"
-                  value={formState.lat ?? ""}
-                  onChange={(event) =>
-                    setFormState((current) => ({
-                      ...current,
-                      lat: event.target.value,
-                    }))
-                  }
-                  placeholder="Latitude"
+                  type="text"
+                  value={formState.resolvedLat ?? ""}
+                  readOnly
+                  placeholder="Resolved latitude"
                   className="w-full rounded-2xl border border-border bg-surface-muted px-4 py-3 text-sm outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
                 />
                 <input
-                  type="number"
-                  step="0.0001"
-                  value={formState.lng ?? ""}
-                  onChange={(event) =>
-                    setFormState((current) => ({
-                      ...current,
-                      lng: event.target.value,
-                    }))
-                  }
-                  placeholder="Longitude"
+                  type="text"
+                  value={formState.resolvedLng ?? ""}
+                  readOnly
+                  placeholder="Resolved longitude"
                   className="w-full rounded-2xl border border-border bg-surface-muted px-4 py-3 text-sm outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
                 />
               </div>
+              {formState.googleMapsUrl ? (
+                <a
+                  href={formState.googleMapsUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex text-sm font-medium text-primary hover:text-primary-strong"
+                >
+                  Google Maps
+                </a>
+              ) : null}
               <div className="flex flex-wrap gap-3">
                 <button
                   type="submit"
-                  disabled={isSaving}
+                  disabled={isSaving || isResolvingLocation}
                   className="rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-white transition hover:bg-primary-strong disabled:cursor-not-allowed disabled:opacity-80"
                 >
                   {isSaving
                     ? isEditing
                       ? "Saving changes..."
                       : "Creating restaurant..."
+                    : isResolvingLocation
+                      ? "Resolving link..."
                     : isEditing
                       ? "Save changes"
                       : "Create restaurant"}

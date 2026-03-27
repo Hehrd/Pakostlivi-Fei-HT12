@@ -36,6 +36,7 @@ public class FoodSaleService {
         }
         FoodSaleEntity foodSale = new FoodSaleEntity();
         foodSale.setFood(resolveFood(request.getFoodId()));
+        foodSale.setQuantity(request.getQuantity());
         foodSale.setPrice(request.getPrice());
         foodSale.setIssuedAt(request.getIssuedAt());
         foodSale.setExpiresAt(request.getExpiresAt());

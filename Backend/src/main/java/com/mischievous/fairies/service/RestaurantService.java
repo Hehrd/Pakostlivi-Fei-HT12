@@ -22,15 +22,18 @@ import java.util.List;
 
 @Service
 public class RestaurantService {
+    private final AccountService accountService;
     private final RestaurantRepository restaurantRepository;
     private final AccountRepository accountRepository;
     private final JwtService jwtService;
 
     @Autowired
     public RestaurantService(RestaurantRepository restaurantRepository,
+                             AccountService accountService,
                              AccountRepository accountRepository,
                              JwtService jwtService) {
         this.restaurantRepository = restaurantRepository;
+        this.accountService = accountService;
         this.accountRepository = accountRepository;
         this.jwtService = jwtService;
     }
@@ -40,11 +43,13 @@ public class RestaurantService {
         if (!authenticatedUser.role().equals(AccountRole.ADMIN)) {
             throw new AccessDeniedException("You are not allowed to access this resource");
         }
+        accountService.signUp(request.getSignUpReqDTO(), AccountRole.RESTAURANT);
+        CreateRestaurantRequestDto.RestaurantCreateData restaurantCreateData = request.getRestaurantCreateData();
         RestaurantEntity restaurant = new RestaurantEntity();
-        restaurant.setName(request.getName());
-        restaurant.setGoogleMapsLink(request.getGoogleMapsLink());
-        restaurant.setLongitude(request.getLongitude());
-        restaurant.setLatitude(request.getLatitude());
+        restaurant.setName(restaurantCreateData.getName());
+        restaurant.setGoogleMapsLink(restaurantCreateData.getGoogleMapsLink());
+        restaurant.setLongitude(restaurantCreateData.getLongitude());
+        restaurant.setLatitude(restaurantCreateData.getLatitude());
         return toResponseDto(restaurantRepository.save(restaurant));
     }
 
