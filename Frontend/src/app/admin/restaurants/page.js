@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -147,7 +147,7 @@ function RestaurantRow({ restaurant, isEditing, onEdit, onDelete }) {
               {restaurant.name}
             </h3>
             <span className="rounded-full bg-primary-soft px-3 py-1 text-xs font-semibold text-primary">
-              {restaurant.listingCount} active listings
+              {restaurant.foodSaleCount} active food sales
             </span>
           </div>
           <a
@@ -214,10 +214,10 @@ export default function AdminRestaurantsPage() {
   const [locationStatus, setLocationStatus] = useState("");
 
   const isEditing = editingRestaurantId !== null;
-  const totalListings = useMemo(
+  const totalFoodSales = useMemo(
     () =>
       restaurants.reduce(
-        (sum, restaurant) => sum + (restaurant.listingCount ?? 0),
+        (sum, restaurant) => sum + (restaurant.foodSaleCount ?? 0),
         0
       ),
     [restaurants]
@@ -465,7 +465,7 @@ export default function AdminRestaurantsPage() {
 
   async function handleDelete(restaurant) {
     const shouldDelete = window.confirm(
-      `Delete ${restaurant.name}? This will also remove its listings.`
+      `Delete ${restaurant.name}? This will also remove its food sales.`
     );
 
     if (!shouldDelete) {
@@ -520,7 +520,7 @@ export default function AdminRestaurantsPage() {
               </h1>
               <p className="max-w-2xl text-sm leading-7 text-white/80 sm:text-base">
                 Create, update, and remove restaurants from the customer map and
-                nearby listings experience.
+                nearby food sales experience.
               </p>
             </div>
           </section>
@@ -544,10 +544,10 @@ export default function AdminRestaurantsPage() {
               </div>
               <div className="rounded-[1.4rem] bg-surface-muted p-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground/55">
-                  Listings
+                  Food Sales
                 </p>
                 <p className="mt-2 text-2xl font-semibold text-foreground">
-                  {totalListings}
+                  {totalFoodSales}
                 </p>
               </div>
             </div>
@@ -718,7 +718,7 @@ export default function AdminRestaurantsPage() {
 
           <AdminCard
             title="Restaurant directory"
-            description="Use edit to update an existing record or delete to remove a restaurant and its listings."
+            description="Use edit to update an existing record or delete to remove a restaurant and its food sales."
           >
             <div className="space-y-4">
               {isLoading ? (
@@ -751,3 +751,4 @@ export default function AdminRestaurantsPage() {
     </main>
   );
 }
+

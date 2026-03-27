@@ -1,4 +1,4 @@
-import { apiFetch } from "@/lib/api";
+﻿import { apiFetch } from "@/lib/api";
 
 const RESERVATION_STORAGE_KEY = "munchmun-reservations";
 
@@ -136,39 +136,40 @@ export async function refreshStoredReservations(user) {
   return replaceStoredReservations(user, refreshedReservations);
 }
 
-export function createReservationRecord(listing, payload) {
+export function createReservationRecord(foodSale, payload) {
   return {
     id:
       payload?.reservation?.id ??
-      payload?.listing?.currentUsersReservation?.id ??
-      listing?.id,
-    listingId: listing?.id ?? "",
-    title: listing?.title ?? "Reserved meal",
-    description: listing?.description ?? "",
-    restaurantId: listing?.restaurantId ?? "",
-    restaurantName: listing?.restaurantName ?? "",
+      payload?.foodSale?.currentUsersReservation?.id ??
+      foodSale?.id,
+    foodSaleId: foodSale?.id ?? "",
+    title: foodSale?.title ?? "Reserved meal",
+    description: foodSale?.description ?? "",
+    restaurantId: foodSale?.restaurantId ?? "",
+    restaurantName: foodSale?.restaurantName ?? "",
     restaurantGoogleMapsUrl:
-      listing?.restaurantGoogleMapsUrl ?? listing?.googleMapsUrl ?? "",
-    price: Number(listing?.price ?? 0),
+      foodSale?.restaurantGoogleMapsUrl ?? foodSale?.googleMapsUrl ?? "",
+    price: Number(foodSale?.price ?? 0),
     reservedAt:
       payload?.reservation?.issuedAt ??
       payload?.reservation?.reservedAt ??
       new Date().toISOString(),
     issuedAt: payload?.reservation?.issuedAt ?? "",
     expiresAt: payload?.reservation?.expiresAt ?? "",
-    pickupWindow: payload?.reservation?.pickupWindow ?? listing?.pickupWindow ?? "",
+    pickupWindow: payload?.reservation?.pickupWindow ?? foodSale?.pickupWindow ?? "",
     pickupCode:
       payload?.reservation?.pickupCode ??
-      payload?.listing?.currentUsersReservation?.pickupCode ??
+      payload?.foodSale?.currentUsersReservation?.pickupCode ??
       "",
     quantity: Number(payload?.reservation?.quantity ?? 1),
     totalPrice: Number(
-      payload?.reservation?.totalPrice ?? Number(listing?.price ?? 0)
+      payload?.reservation?.totalPrice ?? Number(foodSale?.price ?? 0)
     ),
     status:
       payload?.reservation?.status ??
-      payload?.listing?.currentUsersReservation?.status ??
+      payload?.foodSale?.currentUsersReservation?.status ??
       "CONFIRMED",
     paymentStatus: "Stripe integration coming soon",
   };
 }
+

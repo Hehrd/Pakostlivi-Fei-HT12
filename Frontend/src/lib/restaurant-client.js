@@ -5,6 +5,7 @@ import {
   normalizeRestaurantRecord,
 } from "@/lib/backend-normalizers";
 import { centsToCurrencyValue, currencyValueToCents } from "@/lib/price";
+import { API_BASE_URL, AUTH_USER_STORAGE_KEY } from "@/lib/api";
 
 function formatPickupWindow(issuedAt, expiresAt) {
   const formatter = new Intl.DateTimeFormat("en-GB", {
@@ -38,7 +39,67 @@ function mapOptionList(payload) {
     : [];
 }
 
-async function fetchListingLookups() {
+function getMockRestaurantHeaders() {
+  if (API_MODE !== "mock" || typeof window === "undefined") {
+    return {};
+  }
+
+  try {
+    const storedUser = window.sessionStorage.getItem(AUTH_USER_STORAGE_KEY);
+
+    if (!storedUser) {
+      return {};
+    }
+
+    const parsedUser = JSON.parse(storedUser);
+    const email = parsedUser?.email?.trim();
+
+    return email
+      ? {
+          "x-mock-user-email": email,
+        }
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function isValidRedirectUrl(value) {
+  return /^https?:\/\//i.test(String(value ?? "").trim());
+}
+
+async function extractOnboardingResponse(response) {
+  const contentType = response.headers.get("content-type") ?? "";
+
+  if (contentType.includes("application/json")) {
+    const payload = await response.json().catch(() => null);
+    const url =
+      payload?.url ??
+      payload?.redirectUrl ??
+      payload?.data?.url ??
+      payload?.data?.redirectUrl;
+
+    if (isValidRedirectUrl(url)) {
+      return {
+        url: url.trim(),
+        message: payload?.message ?? payload?.error ?? "",
+      };
+    }
+
+    return {
+      url: "",
+      message: payload?.message ?? payload?.error ?? "",
+    };
+  }
+
+  const text = (await response.text().catch(() => "")).trim();
+  return {
+    url: isValidRedirectUrl(text) ? text : "",
+    message: isValidRedirectUrl(text) ? "" : text,
+  };
+}
+
+async function fetchFoodSaleLookups() {
   const [allergensPayload, foodTagsPayload] = await Promise.all([
     apiFetch("/tags/allergens"),
     apiFetch("/tags/food"),
@@ -64,7 +125,7 @@ function normalizeRestaurantCollection(payload) {
   return items.map((restaurant) => normalizeRestaurantRecord(restaurant));
 }
 
-function buildListingRecord({
+function buildFoodSaleRecord({
   restaurant,
   sale,
   food,
@@ -89,7 +150,7 @@ function buildListingRecord({
     restaurantId: restaurant?.id ?? "",
     title: food?.name ?? `Food sale #${sale?.id ?? ""}`,
     description:
-      food?.description?.trim() || "Description not available for this listing.",
+      food?.description?.trim() || "Description not available for this food sale.",
     price: centsToCurrencyValue(sale?.price),
     quantity: Number(sale?.quantity ?? 0) || null,
     pickupWindow: formatPickupWindow(sale?.issuedAt, sale?.expiresAt),
@@ -117,12 +178,12 @@ async function fetchRealOwnerRestaurants() {
 
         return {
           ...restaurant,
-          listingCount: Array.isArray(sales) ? sales.length : 0,
+          foodSaleCount: Array.isArray(sales) ? sales.length : 0,
         };
       } catch {
         return {
           ...restaurant,
-          listingCount: 0,
+          foodSaleCount: 0,
         };
       }
     })
@@ -133,9 +194,9 @@ async function fetchRealOwnerRestaurants() {
   };
 }
 
-async function fetchRealRestaurantListings(restaurantId) {
+async function fetchRealRestaurantFoodSales(restaurantId) {
   const [restaurantsPayload, { allergenLookup, foodTagLookup }] =
-    await Promise.all([fetchRealOwnerRestaurants(), fetchListingLookups()]);
+    await Promise.all([fetchRealOwnerRestaurants(), fetchFoodSaleLookups()]);
   const restaurants = restaurantsPayload?.restaurants ?? [];
   const restaurant =
     restaurants.find((item) => item.id === String(restaurantId)) ??
@@ -146,9 +207,9 @@ async function fetchRealRestaurantListings(restaurantId) {
     return {
       restaurants,
       restaurant: null,
-      listings: [],
+      foodSales: [],
       totals: {
-        listingCount: 0,
+        foodSaleCount: 0,
         reservationCount: 0,
         reservedMeals: 0,
       },
@@ -158,7 +219,7 @@ async function fetchRealRestaurantListings(restaurantId) {
   const salesPayload = await apiFetch(`/food-sales/restaurant/${restaurant.id}`);
   const sales = Array.isArray(salesPayload) ? salesPayload : [];
 
-  const listings = await Promise.all(
+  const foodSales = await Promise.all(
     sales.map(async (sale) => {
       let food = null;
 
@@ -168,7 +229,7 @@ async function fetchRealRestaurantListings(restaurantId) {
         food = null;
       }
 
-      return buildListingRecord({
+      return buildFoodSaleRecord({
         restaurant,
         sale,
         food,
@@ -181,9 +242,9 @@ async function fetchRealRestaurantListings(restaurantId) {
   return {
     restaurants,
     restaurant,
-    listings,
+    foodSales,
     totals: {
-      listingCount: listings.length,
+      foodSaleCount: foodSales.length,
       reservationCount: 0,
       reservedMeals: 0,
     },
@@ -192,7 +253,7 @@ async function fetchRealRestaurantListings(restaurantId) {
 
 export async function fetchOwnerRestaurants() {
   if (API_MODE === "mock") {
-    const payload = await apiFetch("/restaurant/listings");
+    const payload = await apiFetch("/restaurant/food-sales");
 
     return {
       restaurants: payload?.restaurant ? [payload.restaurant] : [],
@@ -200,6 +261,60 @@ export async function fetchOwnerRestaurants() {
   }
 
   return fetchRealOwnerRestaurants();
+}
+
+export async function startRestaurantStripeOnboarding() {
+  let response;
+
+  try {
+    response = await fetch(`${API_BASE_URL}/restaurants/onboard`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        ...getMockRestaurantHeaders(),
+      },
+    });
+  } catch {
+    throw {
+      status: 0,
+      message:
+        "The backend could not be reached. Make sure the Java server is running and CORS allows this frontend.",
+    };
+  }
+
+  const { url: onboardingUrl, message } = await extractOnboardingResponse(
+    response
+  );
+
+  if (
+    (response.ok || (response.status >= 300 && response.status < 400)) &&
+    onboardingUrl
+  ) {
+    return {
+      url: onboardingUrl,
+    };
+  }
+
+  if (response.status === 401) {
+    throw {
+      status: 401,
+      message: "Your session expired. Please log in again.",
+    };
+  }
+
+  if (response.status === 403) {
+    throw {
+      status: 403,
+      message: "Only restaurant accounts can connect Stripe right now.",
+    };
+  }
+
+  throw {
+    status: response.status,
+    message:
+      message ||
+      "Unable to start Stripe onboarding right now. Please try again.",
+  };
 }
 
 export async function updateOwnedRestaurant(body) {
@@ -226,7 +341,7 @@ export async function updateOwnedRestaurant(body) {
   };
 }
 
-export async function fetchRestaurantListingOptions() {
+export async function fetchRestaurantFoodSaleOptions() {
   if (API_MODE === "mock") {
     const [allergenPayload, foodTagPayload] = await Promise.all([
       apiFetch("/allergens"),
@@ -249,7 +364,7 @@ export async function fetchRestaurantListingOptions() {
     };
   }
 
-  const { allergens, foodTags } = await fetchListingLookups();
+  const { allergens, foodTags } = await fetchFoodSaleLookups();
 
   return {
     allergens,
@@ -257,19 +372,19 @@ export async function fetchRestaurantListingOptions() {
   };
 }
 
-export async function fetchMyRestaurantListings(restaurantId) {
+export async function fetchMyRestaurantFoodSales(restaurantId) {
   if (API_MODE === "mock") {
-    return apiFetch("/restaurant/listings");
+    return apiFetch("/restaurant/food-sales");
   }
 
-  return fetchRealRestaurantListings(restaurantId);
+  return fetchRealRestaurantFoodSales(restaurantId);
 }
 
-export async function createRestaurantListing(body) {
+export async function createRestaurantFoodSale(body) {
   if (API_MODE !== "real") {
     throw {
       status: 501,
-      message: "Listing creation is only wired for the real backend right now.",
+      message: "Food sale creation is only wired for the real backend right now.",
     };
   }
 
@@ -299,14 +414,14 @@ export async function createRestaurantListing(body) {
     },
   });
 
-  return fetchRealRestaurantListings(body?.restaurantId);
+  return fetchRealRestaurantFoodSales(body?.restaurantId);
 }
 
-export async function updateRestaurantListing(body) {
+export async function updateRestaurantFoodSale(body) {
   if (API_MODE !== "real") {
     throw {
       status: 501,
-      message: "Listing updates are only wired for the real backend right now.",
+      message: "Food sale updates are only wired for the real backend right now.",
     };
   }
 
@@ -338,14 +453,14 @@ export async function updateRestaurantListing(body) {
     }),
   ]);
 
-  return fetchRealRestaurantListings(body?.restaurantId);
+  return fetchRealRestaurantFoodSales(body?.restaurantId);
 }
 
-export async function deleteRestaurantListing(body) {
+export async function deleteRestaurantFoodSale(body) {
   if (API_MODE !== "real") {
     throw {
       status: 501,
-      message: "Listing deletion is only wired for the real backend right now.",
+      message: "Food sale deletion is only wired for the real backend right now.",
     };
   }
 
@@ -353,10 +468,10 @@ export async function deleteRestaurantListing(body) {
     method: "DELETE",
   });
 
-  return fetchRealRestaurantListings(body?.restaurantId);
+  return fetchRealRestaurantFoodSales(body?.restaurantId);
 }
 
-export async function fetchListingReservations(listingId) {
+export async function fetchFoodSaleReservations(foodSaleId) {
   if (API_MODE !== "mock") {
     throw {
       status: 501,
@@ -365,5 +480,6 @@ export async function fetchListingReservations(listingId) {
     };
   }
 
-  return apiFetch(`/restaurant/listings/${listingId}/reservations`);
+  return apiFetch(`/restaurant/food-sales/${foodSaleId}/reservations`);
 }
+

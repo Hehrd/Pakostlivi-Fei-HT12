@@ -214,7 +214,7 @@ public class RestaurantService {
         AccountLinkCreateParams params = AccountLinkCreateParams.builder()
                 .setAccount(accountId)
                 .setRefreshUrl("http://localhost:3000/settings")
-                .setReturnUrl("http://localhost:3000/restaurant/listings")
+                .setReturnUrl("http://localhost:3000/restaurant/food-sales")
                 .setType(AccountLinkCreateParams.Type.ACCOUNT_ONBOARDING)
                 .build();
         AccountLink accountLink = AccountLink.create(params);

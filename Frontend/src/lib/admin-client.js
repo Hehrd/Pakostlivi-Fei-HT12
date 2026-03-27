@@ -1,4 +1,4 @@
-import { API_MODE, apiFetch } from "@/lib/api";
+﻿import { API_MODE, apiFetch } from "@/lib/api";
 import {
   normalizePagedPayload,
   normalizeRestaurantRecord,
@@ -25,11 +25,11 @@ export async function fetchAdminRestaurants() {
         const sales = await apiFetch(`/food-sales/restaurant/${restaurant.id}`);
 
         return normalizeRestaurantRecord(restaurant, {
-          listingCount: Array.isArray(sales) ? sales.length : 0,
+          foodSaleCount: Array.isArray(sales) ? sales.length : 0,
         });
       } catch {
         return normalizeRestaurantRecord(restaurant, {
-          listingCount: 0,
+          foodSaleCount: 0,
         });
       }
     })
@@ -72,7 +72,7 @@ export async function createRestaurant(body) {
 
   return {
     restaurant: normalizeRestaurantRecord(payload, {
-      listingCount: 0,
+      foodSaleCount: 0,
     }),
   };
 }
@@ -96,18 +96,18 @@ export async function updateRestaurant(restaurantId, body) {
     }),
   });
 
-  let listingCount = 0;
+  let foodSaleCount = 0;
 
   try {
     const sales = await apiFetch(`/food-sales/restaurant/${restaurantId}`);
-    listingCount = Array.isArray(sales) ? sales.length : 0;
+    foodSaleCount = Array.isArray(sales) ? sales.length : 0;
   } catch {
-    listingCount = 0;
+    foodSaleCount = 0;
   }
 
   return {
     restaurant: normalizeRestaurantRecord(payload, {
-      listingCount,
+      foodSaleCount,
     }),
   };
 }
@@ -123,3 +123,4 @@ export async function deleteRestaurant(restaurantId) {
     method: "DELETE",
   });
 }
+

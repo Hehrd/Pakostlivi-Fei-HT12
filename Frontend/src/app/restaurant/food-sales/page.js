@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -12,13 +12,13 @@ import {
   isRestaurantUser,
 } from "@/lib/auth-user";
 import {
-  createRestaurantListing,
-  deleteRestaurantListing,
-  fetchMyRestaurantListings,
+  createRestaurantFoodSale,
+  deleteRestaurantFoodSale,
+  fetchMyRestaurantFoodSales,
   fetchOwnerRestaurants,
-  fetchRestaurantListingOptions,
+  fetchRestaurantFoodSaleOptions,
   updateOwnedRestaurant,
-  updateRestaurantListing,
+  updateRestaurantFoodSale,
 } from "@/lib/restaurant-client";
 
 const EMPTY_FORM = {
@@ -81,11 +81,11 @@ function OptionChip({ active, disabled = false, onClick, children }) {
   );
 }
 
-function ListingCard({ listing, isSelected, onSelect }) {
+function FoodSaleCard({ foodSale, isSelected, onSelect }) {
   return (
     <button
       type="button"
-      onClick={() => onSelect(listing)}
+      onClick={() => onSelect(foodSale)}
       className={`w-full rounded-[1.6rem] border p-5 text-left transition ${
         isSelected
           ? "border-primary bg-primary-soft/55 shadow-[0_16px_36px_rgba(31,143,87,0.12)]"
@@ -94,30 +94,30 @@ function ListingCard({ listing, isSelected, onSelect }) {
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2">
-          <h3 className="text-lg font-semibold text-foreground">{listing.title}</h3>
+          <h3 className="text-lg font-semibold text-foreground">{foodSale.title}</h3>
           <p className="text-sm leading-7 text-foreground/66">
-            {listing.description}
+            {foodSale.description}
           </p>
         </div>
         <span className="rounded-full bg-white/90 px-3 py-1 text-sm font-semibold text-primary">
-          {listing.price.toFixed(2)} lv
+          {foodSale.price.toFixed(2)} lv
         </span>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
         <span className="rounded-full border border-border bg-white px-3 py-1 text-xs font-medium text-foreground/72">
-          Pickup {listing.pickupWindow}
+          Pickup {foodSale.pickupWindow}
         </span>
         <span className="rounded-full border border-border bg-white px-3 py-1 text-xs font-medium text-foreground/72">
-          {listing.quantity ? `${listing.quantity} meals` : "Quantity unavailable"}
+          {foodSale.quantity ? `${foodSale.quantity} meals` : "Quantity unavailable"}
         </span>
       </div>
 
-      {listing.tags?.length ? (
+      {foodSale.tags?.length ? (
         <div className="mt-4 flex flex-wrap gap-2">
-          {listing.tags.map((tag) => (
+          {foodSale.tags.map((tag) => (
             <span
-              key={`${listing.id}-${tag}`}
+              key={`${foodSale.id}-${tag}`}
               className="rounded-full border border-border bg-surface-muted px-3 py-1 text-xs font-medium text-foreground/68"
             >
               {tag}
@@ -126,11 +126,11 @@ function ListingCard({ listing, isSelected, onSelect }) {
         </div>
       ) : null}
 
-      {listing.allergens?.length ? (
+      {foodSale.allergens?.length ? (
         <div className="mt-3 flex flex-wrap gap-2">
-          {listing.allergens.map((allergen) => (
+          {foodSale.allergens.map((allergen) => (
             <span
-              key={`${listing.id}-${allergen}`}
+              key={`${foodSale.id}-${allergen}`}
               className="rounded-full border border-border/75 bg-white px-3 py-1 text-xs font-medium text-foreground/60"
             >
               {allergen}
@@ -166,36 +166,36 @@ function toIsoString(value) {
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
 
-function buildFormStateFromListing(listing) {
-  if (!listing) {
+function buildFormStateFromFoodSale(foodSale) {
+  if (!foodSale) {
     return EMPTY_FORM;
   }
 
   return {
-    title: listing.title ?? "",
-    description: listing.description ?? "",
-    price: String(listing.price ?? ""),
-    quantity: listing.quantity ? String(listing.quantity) : "",
-    issuedAt: toDateTimeLocalValue(listing.issuedAt),
-    expiresAt: toDateTimeLocalValue(listing.expiresAt),
-    allergenIds: Array.isArray(listing.allergenIds) ? listing.allergenIds : [],
-    foodTagIds: Array.isArray(listing.foodTagIds) ? listing.foodTagIds : [],
+    title: foodSale.title ?? "",
+    description: foodSale.description ?? "",
+    price: String(foodSale.price ?? ""),
+    quantity: foodSale.quantity ? String(foodSale.quantity) : "",
+    issuedAt: toDateTimeLocalValue(foodSale.issuedAt),
+    expiresAt: toDateTimeLocalValue(foodSale.expiresAt),
+    allergenIds: Array.isArray(foodSale.allergenIds) ? foodSale.allergenIds : [],
+    foodTagIds: Array.isArray(foodSale.foodTagIds) ? foodSale.foodTagIds : [],
   };
 }
 
-export default function RestaurantListingsPage() {
+export default function RestaurantFoodSalesPage() {
   const router = useRouter();
   const { user, isAuthLoading } = useAuth();
   const [restaurants, setRestaurants] = useState([]);
   const [selectedRestaurantId, setSelectedRestaurantId] = useState("");
   const [restaurant, setRestaurant] = useState(null);
-  const [listings, setListings] = useState([]);
+  const [foodSales, setFoodSales] = useState([]);
   const [totals, setTotals] = useState({
-    listingCount: 0,
+    foodSaleCount: 0,
     reservationCount: 0,
     reservedMeals: 0,
   });
-  const [selectedListingId, setSelectedListingId] = useState(null);
+  const [selectedFoodSaleId, setSelectedFoodSaleId] = useState(null);
   const [options, setOptions] = useState({
     allergens: [],
     foodTags: [],
@@ -215,22 +215,22 @@ export default function RestaurantListingsPage() {
   const [isSavingRestaurant, setIsSavingRestaurant] = useState(false);
   const [apiNotice, setApiNotice] = useState("");
 
-  const selectedListing = useMemo(
-    () => listings.find((listing) => listing.id === selectedListingId) ?? null,
-    [listings, selectedListingId]
+  const selectedFoodSale = useMemo(
+    () => foodSales.find((foodSale) => foodSale.id === selectedFoodSaleId) ?? null,
+    [foodSales, selectedFoodSaleId]
   );
 
-  function applyWorkspacePayload(payload, nextSelectedListingId = null) {
+  function applyWorkspacePayload(payload, nextSelectedFoodSaleId = null) {
     const nextRestaurants = payload?.restaurants ?? [];
     const nextRestaurant = payload?.restaurant ?? null;
-    const nextListings = payload?.listings ?? [];
+    const nextFoodSales = payload?.foodSales ?? [];
 
     setRestaurants(nextRestaurants);
     setRestaurant(nextRestaurant);
-    setListings(nextListings);
+    setFoodSales(nextFoodSales);
     setTotals(
       payload?.totals ?? {
-        listingCount: nextListings.length,
+        foodSaleCount: nextFoodSales.length,
         reservationCount: 0,
         reservedMeals: 0,
       }
@@ -250,34 +250,34 @@ export default function RestaurantListingsPage() {
     });
 
     if (
-      nextSelectedListingId &&
-      nextListings.some((listing) => listing.id === nextSelectedListingId)
+      nextSelectedFoodSaleId &&
+      nextFoodSales.some((foodSale) => foodSale.id === nextSelectedFoodSaleId)
     ) {
-      setSelectedListingId(nextSelectedListingId);
+      setSelectedFoodSaleId(nextSelectedFoodSaleId);
       setFormMode("edit");
       setFormState(
-        buildFormStateFromListing(
-          nextListings.find((listing) => listing.id === nextSelectedListingId)
+        buildFormStateFromFoodSale(
+          nextFoodSales.find((foodSale) => foodSale.id === nextSelectedFoodSaleId)
         )
       );
       return;
     }
 
-    setSelectedListingId(null);
+    setSelectedFoodSaleId(null);
     setFormMode("create");
     setFormState(EMPTY_FORM);
   }
 
   function handleStartCreate() {
-    setSelectedListingId(null);
+    setSelectedFoodSaleId(null);
     setFormMode("create");
     setFormState(EMPTY_FORM);
   }
 
-  function handleSelectListing(listing) {
-    setSelectedListingId(listing.id);
+  function handleSelectFoodSale(foodSale) {
+    setSelectedFoodSaleId(foodSale.id);
     setFormMode("edit");
-    setFormState(buildFormStateFromListing(listing));
+    setFormState(buildFormStateFromFoodSale(foodSale));
   }
 
   function toggleOption(field, optionId) {
@@ -316,7 +316,7 @@ export default function RestaurantListingsPage() {
       try {
         const [restaurantsPayload, optionsPayload] = await Promise.all([
           fetchOwnerRestaurants(),
-          fetchRestaurantListingOptions(),
+          fetchRestaurantFoodSaleOptions(),
         ]);
 
         const ownedRestaurants = restaurantsPayload?.restaurants ?? [];
@@ -355,9 +355,9 @@ export default function RestaurantListingsPage() {
     async function loadWorkspace() {
       if (!selectedRestaurantId) {
       setRestaurant(null);
-      setListings([]);
+      setFoodSales([]);
       setTotals({
-          listingCount: 0,
+          foodSaleCount: 0,
         reservationCount: 0,
         reservedMeals: 0,
       });
@@ -374,10 +374,10 @@ export default function RestaurantListingsPage() {
       setIsWorkspaceLoading(true);
 
       try {
-        const payload = await fetchMyRestaurantListings(selectedRestaurantId);
+        const payload = await fetchMyRestaurantFoodSales(selectedRestaurantId);
         applyWorkspacePayload(payload);
       } catch (error) {
-        toast.error("Unable to load listings.", {
+        toast.error("Unable to load food sales.", {
           description: error.message || "Please try again.",
         });
       } finally {
@@ -399,7 +399,7 @@ export default function RestaurantListingsPage() {
     }
 
     if (!formState.title.trim()) {
-      toast.error("Listing name is required.");
+      toast.error("Food sale name is required.");
       return;
     }
 
@@ -431,7 +431,7 @@ export default function RestaurantListingsPage() {
     try {
       const payload =
         formMode === "create"
-          ? await createRestaurantListing({
+          ? await createRestaurantFoodSale({
               restaurantId: selectedRestaurantId,
               title: formState.title,
               description: formState.description,
@@ -442,10 +442,10 @@ export default function RestaurantListingsPage() {
               allergenIds: formState.allergenIds,
               foodTagIds: formState.foodTagIds,
             })
-          : await updateRestaurantListing({
+          : await updateRestaurantFoodSale({
               restaurantId: selectedRestaurantId,
-              saleId: selectedListing?.saleId,
-              foodId: selectedListing?.foodId,
+              saleId: selectedFoodSale?.saleId,
+              foodId: selectedFoodSale?.foodId,
               title: formState.title,
               description: formState.description,
               price: formState.price,
@@ -458,14 +458,14 @@ export default function RestaurantListingsPage() {
 
       applyWorkspacePayload(
         payload,
-        formMode === "edit" ? selectedListing?.id ?? null : null
+        formMode === "edit" ? selectedFoodSale?.id ?? null : null
       );
       toast.success(
-        formMode === "create" ? "Listing created." : "Listing updated."
+        formMode === "create" ? "Food sale created." : "Food sale updated."
       );
     } catch (error) {
       toast.error(
-        formMode === "create" ? "Unable to create listing." : "Unable to update listing.",
+        formMode === "create" ? "Unable to create food sale." : "Unable to update food sale.",
         {
           description: error.message || "Please try again.",
         }
@@ -476,12 +476,12 @@ export default function RestaurantListingsPage() {
   }
 
   async function handleDelete() {
-    if (!selectedListing || !selectedRestaurantId) {
+    if (!selectedFoodSale || !selectedRestaurantId) {
       return;
     }
 
     const shouldDelete = window.confirm(
-      `Delete ${selectedListing.title}? This removes the active food sale from the restaurant dashboard.`
+      `Delete ${selectedFoodSale.title}? This removes the active food sale from the restaurant dashboard.`
     );
 
     if (!shouldDelete) {
@@ -491,14 +491,14 @@ export default function RestaurantListingsPage() {
     setIsDeleting(true);
 
     try {
-      const payload = await deleteRestaurantListing({
+      const payload = await deleteRestaurantFoodSale({
         restaurantId: selectedRestaurantId,
-        saleId: selectedListing.saleId,
+        saleId: selectedFoodSale.saleId,
       });
       applyWorkspacePayload(payload);
-      toast.success("Listing deleted.");
+      toast.success("Food sale deleted.");
     } catch (error) {
-      toast.error("Unable to delete listing.", {
+      toast.error("Unable to delete food sale.", {
         description: error.message || "Please try again.",
       });
     } finally {
@@ -549,7 +549,7 @@ export default function RestaurantListingsPage() {
             ? {
                 ...item,
                 ...updatedRestaurant,
-                listingCount: item.listingCount ?? 0,
+                foodSaleCount: item.foodSaleCount ?? 0,
               }
             : item
         )
@@ -598,10 +598,10 @@ export default function RestaurantListingsPage() {
             </p>
             <div className="mt-4 space-y-3">
               <h1 className="max-w-[14ch] text-4xl font-semibold leading-[1.02] tracking-[-0.04em]">
-                Build and manage live meal listings for your restaurants.
+                Build and manage live meal food sales for your restaurants.
               </h1>
               <p className="max-w-2xl text-sm leading-7 text-white/80 sm:text-base">
-                Pick one of your owned restaurants, publish a food listing,
+                Pick one of your owned restaurants, publish a food sale,
                 and keep the active pickup windows and meal tags up to date.
               </p>
             </div>
@@ -622,7 +622,7 @@ export default function RestaurantListingsPage() {
                 value={restaurant?.name ?? "No restaurant selected"}
               />
               <div className="grid grid-cols-2 gap-3">
-                <MetricCard label="Listings" value={totals.listingCount} />
+                <MetricCard label="Food Sales" value={totals.foodSaleCount} />
                 <MetricCard
                   label="Reservations"
                   value="Soon"
@@ -657,7 +657,7 @@ export default function RestaurantListingsPage() {
         <div className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
           <Panel
             title="Workspace"
-            description="Choose which owned restaurant you want to publish listings for, then switch between creating a new listing and editing an existing one."
+            description="Choose which owned restaurant you want to publish food sales for, then switch between creating a new food sale and editing an existing one."
           >
             {isPageLoading ? (
               <div className="rounded-[1.6rem] border border-border bg-surface-muted px-5 py-6 text-sm text-foreground/64">
@@ -791,9 +791,9 @@ export default function RestaurantListingsPage() {
                     onClick={handleStartCreate}
                     className="rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-white transition hover:bg-primary-strong"
                   >
-                    New listing
+                    New food sale
                   </button>
-                  {selectedListing ? (
+                  {selectedFoodSale ? (
                     <button
                       type="button"
                       onClick={handleDelete}
@@ -809,7 +809,7 @@ export default function RestaurantListingsPage() {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <label className="space-y-2 sm:col-span-2">
                       <span className="text-sm font-semibold text-foreground">
-                        Listing title
+                        Food sale title
                       </span>
                       <input
                         type="text"
@@ -952,9 +952,9 @@ export default function RestaurantListingsPage() {
 
                   {formMode === "edit" ? (
                     <div className="rounded-[1.4rem] border border-border bg-surface-muted px-4 py-4 text-sm leading-7 text-foreground/64">
-                      Listing prices are entered here in lv for humans, then sent
+                      Food sale prices are entered here in lv for humans, then sent
                       to the backend in cents. Description and quantity now update
-                      together with the rest of the listing fields.
+                      together with the rest of the food sale fields.
                     </div>
                   ) : null}
 
@@ -965,11 +965,11 @@ export default function RestaurantListingsPage() {
                   >
                     {isSaving
                       ? formMode === "create"
-                        ? "Creating listing..."
+                        ? "Creating food sale..."
                         : "Saving changes..."
                       : formMode === "create"
-                        ? "Create listing"
-                        : "Save listing changes"}
+                        ? "Create food sale"
+                        : "Save food sale changes"}
                   </button>
                 </form>
               </div>
@@ -977,31 +977,31 @@ export default function RestaurantListingsPage() {
           </Panel>
 
           <Panel
-            title="Active listings"
-            description="These listings are composed from the current restaurant's food sales and foods. Pick one to edit it, or start a new listing from the left."
+            title="Active food sales"
+            description="These food sales are composed from the current restaurant's foods and food-sale records. Pick one to edit it, or start a new food sale from the left."
           >
             {isWorkspaceLoading ? (
               <div className="rounded-[1.6rem] border border-border bg-surface-muted px-5 py-6 text-sm text-foreground/64">
-                Loading listings...
+                Loading food sales...
               </div>
-            ) : listings.length > 0 ? (
+            ) : foodSales.length > 0 ? (
               <div className="space-y-4">
-                {listings.map((listing) => (
-                  <ListingCard
-                    key={listing.id}
-                    listing={listing}
-                    isSelected={listing.id === selectedListingId}
-                    onSelect={handleSelectListing}
+                {foodSales.map((foodSale) => (
+                  <FoodSaleCard
+                    key={foodSale.id}
+                    foodSale={foodSale}
+                    isSelected={foodSale.id === selectedFoodSaleId}
+                    onSelect={handleSelectFoodSale}
                   />
                 ))}
               </div>
             ) : (
               <div className="space-y-4">
                 <div className="rounded-[1.6rem] border border-dashed border-border bg-surface-muted px-5 py-6 text-sm text-foreground/64">
-                  No active listings for this restaurant yet.
+                  No active food sales for this restaurant yet.
                 </div>
                 <div className="rounded-[1.6rem] border border-border bg-white px-5 py-5 text-sm leading-7 text-foreground/64">
-                  Create a listing on the left to post a food + food-sale pair to
+                  Create a food sale on the left to post a food + food-sale pair to
                   the backend. Reservation queue details will fit here once the API
                   adds a restaurant-facing reservations endpoint.
                 </div>
@@ -1013,3 +1013,4 @@ export default function RestaurantListingsPage() {
     </main>
   );
 }
+

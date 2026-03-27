@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
@@ -65,7 +65,7 @@ export default function AppNavbar() {
   const homeHref = isAdmin
     ? "/admin/restaurants"
     : isRestaurant
-      ? "/restaurant/listings"
+      ? "/restaurant/food-sales"
       : "/";
 
   return (
@@ -127,14 +127,14 @@ export default function AppNavbar() {
           ) : null}
           {isRestaurant ? (
             <Link
-              href="/restaurant/listings"
+              href="/restaurant/food-sales"
               className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
                 pathname.startsWith("/restaurant")
                   ? "bg-primary text-white"
                   : "text-foreground/72 hover:bg-white hover:text-foreground"
               }`}
             >
-              Listings
+              Food Sales
             </Link>
           ) : null}
           <Link
@@ -198,10 +198,10 @@ export default function AppNavbar() {
               ) : null}
               {isRestaurant ? (
                 <Link
-                  href="/restaurant/listings"
+                  href="/restaurant/food-sales"
                   className="block rounded-2xl px-3 py-2.5 text-sm font-medium text-foreground/78 transition hover:bg-primary-soft hover:text-foreground"
                 >
-                  My listings
+                  My food sales
                 </Link>
               ) : null}
               <button
@@ -218,3 +218,4 @@ export default function AppNavbar() {
     </header>
   );
 }
+
