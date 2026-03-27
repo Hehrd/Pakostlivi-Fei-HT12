@@ -32,6 +32,4 @@ public class AccountEntity {
 
     @Column(nullable = false, length = 255)
     private String passwordHash;
-
-
 }
