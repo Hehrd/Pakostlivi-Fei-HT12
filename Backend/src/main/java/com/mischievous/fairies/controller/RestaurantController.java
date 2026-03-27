@@ -6,6 +6,7 @@ import com.mischievous.fairies.controller.dtos.response.PagedResponse;
 import com.mischievous.fairies.controller.dtos.response.restaurant.RestaurantResponseDto;
 import com.mischievous.fairies.service.RestaurantService;
 
+import com.stripe.exception.StripeException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -37,6 +38,11 @@ public class RestaurantController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(response);
+    }
+
+    @PostMapping("/onboard")
+    public ResponseEntity<String> onboard(Authentication authentication) throws StripeException {
+            return ResponseEntity.status(HttpStatus.TEMPORARY_REDIRECT).body(restaurantService.onboard(authentication));
     }
 
     @GetMapping("/by-owner")

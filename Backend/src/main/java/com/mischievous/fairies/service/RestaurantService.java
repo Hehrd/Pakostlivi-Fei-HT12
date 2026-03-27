@@ -1,15 +1,21 @@
 package com.mischievous.fairies.service;
 
 import com.mischievous.fairies.auth.filter.AuthenticatedUser;
+import com.mischievous.fairies.common.exceptions.RestaurantNotFoundException;
 import com.mischievous.fairies.controller.dtos.request.restaurant.CreateRestaurantRequestDto;
 import com.mischievous.fairies.controller.dtos.request.restaurant.UpdateRestaurantRequestDto;
 import com.mischievous.fairies.controller.dtos.response.PagedResponse;
 import com.mischievous.fairies.controller.dtos.response.restaurant.RestaurantResponseDto;
 import com.mischievous.fairies.persistence.model.AccountEntity;
 import com.mischievous.fairies.persistence.model.RestaurantEntity;
+import com.mischievous.fairies.persistence.model.StripeAccountEntity;
 import com.mischievous.fairies.persistence.repository.AccountRepository;
 import com.mischievous.fairies.persistence.repository.RestaurantRepository;
+import com.mischievous.fairies.persistence.repository.StripeAccountRepository;
 import com.mischievous.fairies.persistence.status.AccountRole;
+import com.stripe.exception.StripeException;
+import com.stripe.model.AccountLink;
+import com.stripe.param.AccountLinkCreateParams;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -24,19 +30,19 @@ import java.util.List;
 @Service
 public class RestaurantService {
     private final AccountService accountService;
+    private final StripeService stripeService;
+    private final StripeAccountRepository stripeAccountRepository;
     private final RestaurantRepository restaurantRepository;
-    private final AccountRepository accountRepository;
-    private final JwtService jwtService;
 
     @Autowired
     public RestaurantService(RestaurantRepository restaurantRepository,
+                             StripeService stripeService,
                              AccountService accountService,
-                             AccountRepository accountRepository,
-                             JwtService jwtService) {
+                             StripeAccountRepository stripeAccountRepository ) {
         this.restaurantRepository = restaurantRepository;
+        this.stripeService = stripeService;
+        this.stripeAccountRepository = stripeAccountRepository;
         this.accountService = accountService;
-        this.accountRepository = accountRepository;
-        this.jwtService = jwtService;
     }
 
     public RestaurantResponseDto createRestaurant(CreateRestaurantRequestDto request, Authentication authentication) {
@@ -185,5 +191,33 @@ public class RestaurantService {
         response.setTotal(restaurants.getNumberOfElements());
         response.setTotalPages(restaurants.getTotalPages());
         return response;
+    }
+
+    public String onboard(Authentication authentication) throws StripeException {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+        if (!authenticatedUser.role().equals(AccountRole.RESTAURANT)) {
+            throw new AccessDeniedException("You are not allowed to access this resource");
+        }
+        Long userid = authenticatedUser.userId();
+//        AccountEntity account = accountRepository.findById(userid)
+//                .orElseThrow(() -> new UserNotExistingException("User with id: " + userid + " not found" ));
+        RestaurantEntity restaurant = restaurantRepository.findByOwner_Id(userid).orElseThrow(() -> new RestaurantNotFoundException("Restaurant with owner id " + userid + " not found"));
+        StripeAccountEntity stripeAccount = new StripeAccountEntity();
+        stripeAccount.setStripeAccountId(stripeService.createBusinessAccount(authenticatedUser.email()));
+        stripeAccount.setActive(false);
+        restaurant.setStripeAccount(stripeAccountRepository.save(stripeAccount));
+
+        return createAccountLink(stripeAccount.getStripeAccountId());
+    }
+
+    private String createAccountLink(String accountId) throws StripeException {
+        AccountLinkCreateParams params = AccountLinkCreateParams.builder()
+                .setAccount(accountId)
+                .setRefreshUrl("http://localhost:3000/settings")
+                .setReturnUrl("http://localhost:3000/restaurant/listings")
+                .setType(AccountLinkCreateParams.Type.ACCOUNT_ONBOARDING)
+                .build();
+        AccountLink accountLink = AccountLink.create(params);
+        return accountLink.getUrl();
     }
 }

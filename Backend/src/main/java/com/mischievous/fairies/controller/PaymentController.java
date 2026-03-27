@@ -1,38 +1,36 @@
 package com.mischievous.fairies.controller;
 
 import com.mischievous.fairies.controller.dtos.request.payment.PaymentDetailsReqDto;
-import com.mischievous.fairies.service.PaymentService;
+import com.mischievous.fairies.service.StripeService;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
 import com.stripe.net.Webhook;
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/payments")
 public class PaymentController {
 
-    private final PaymentService paymentService;
+    private final StripeService stripeService;
     private final String webhookSecret = "";
 
     public PaymentController(
-            PaymentService paymentService
+            StripeService stripeService
 //            @Value("${stripe.webhook-secret}") String webhookSecret
     ) {
-        this.paymentService = paymentService;
+        this.stripeService = stripeService;
 //        this.webhookSecret = webhookSecret;
     }
 
-    @PostMapping
+    @PostMapping()
     public ResponseEntity<ClientSecretResDto> createPaymentIntent(
-            @RequestBody PaymentDetailsReqDto paymentDetails
-    ) throws StripeException {
-
-        String clientSecret = paymentService.createPaymentIntent(paymentDetails);
+            @RequestBody PaymentDetailsReqDto paymentDetails) throws StripeException {
+        String clientSecret = stripeService.createPaymentIntent(paymentDetails );
         return ResponseEntity.ok(new ClientSecretResDto(clientSecret));
     }
 
