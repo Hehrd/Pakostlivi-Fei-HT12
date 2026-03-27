@@ -20,6 +20,7 @@ import {
   isClientUser,
   isRestaurantUser,
 } from "@/lib/auth-user";
+import { startRestaurantStripeOnboarding } from "@/lib/restaurant-client";
 
 function SettingsCard({ eyebrow, title, description, children }) {
   return (
@@ -70,8 +71,11 @@ export default function SettingsPage() {
   const [isSavingAllergens, setIsSavingAllergens] = useState(false);
   const [isSavingPreferredFoods, setIsSavingPreferredFoods] = useState(false);
   const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [isStartingStripeOnboarding, setIsStartingStripeOnboarding] =
+    useState(false);
   const isPreferenceWriteUnavailable = false;
   const isPasswordWriteUnavailable = API_MODE !== "mock";
+  const isStripeConnectUnavailable = API_MODE !== "real";
   const isAdmin = isAdminUser(user);
   const isRestaurant = isRestaurantUser(user);
   const isClient = isClientUser(user);
@@ -96,12 +100,12 @@ export default function SettingsPage() {
   const backHref = isAdmin
     ? "/admin/restaurants"
     : isRestaurant
-      ? "/restaurant/listings"
+      ? "/restaurant/food-sales"
       : "/";
   const backLabel = isAdmin
     ? "Back to admin"
     : isRestaurant
-      ? "Back to listings"
+      ? "Back to food sales"
       : "Back to home";
 
   const savedAllergensKey = useMemo(
@@ -253,6 +257,29 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleStartStripeOnboarding() {
+    setIsStartingStripeOnboarding(true);
+
+    try {
+      const payload = await startRestaurantStripeOnboarding();
+
+      if (!payload?.url) {
+        throw {
+          status: 400,
+          message: "The backend did not return a Stripe onboarding URL.",
+        };
+      }
+
+      window.location.href = payload.url;
+    } catch (error) {
+      toast.error("Unable to open Stripe onboarding.", {
+        description: error.message || "Please try again.",
+      });
+    } finally {
+      setIsStartingStripeOnboarding(false);
+    }
+  }
+
   if (isAuthLoading || !user) {
     return null;
   }
@@ -310,6 +337,43 @@ export default function SettingsPage() {
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
+          {isRestaurant ? (
+            <SettingsCard
+              eyebrow="Stripe"
+              title="Connect your payout account"
+              description="This frontend currently assumes your restaurant account still needs Stripe onboarding, so the connect action is always available here."
+            >
+              <div className="space-y-4">
+                <div className="rounded-[1.4rem] border border-border bg-surface-muted/65 p-4 text-sm leading-7 text-foreground/68">
+                  Stripe handles the account connection flow on its hosted page.
+                  If Stripe sends you back here because the onboarding link
+                  expired, press the button again to generate a fresh link.
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleStartStripeOnboarding}
+                    disabled={
+                      isStripeConnectUnavailable || isStartingStripeOnboarding
+                    }
+                    className="rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-white transition hover:bg-primary-strong disabled:cursor-not-allowed disabled:opacity-80"
+                  >
+                    {isStripeConnectUnavailable
+                      ? "Unavailable"
+                      : isStartingStripeOnboarding
+                        ? "Opening Stripe..."
+                        : "Connect Stripe account"}
+                  </button>
+                  <p className="text-sm text-foreground/62">
+                    {isStripeConnectUnavailable
+                      ? "Stripe onboarding is only wired when the app is using the real backend."
+                      : "You will be redirected to Stripe to connect the restaurant account."}
+                  </p>
+                </div>
+              </div>
+            </SettingsCard>
+          ) : null}
+
           <SettingsCard
             eyebrow="Security"
             title="Change password"
@@ -363,7 +427,7 @@ export default function SettingsPage() {
             <SettingsCard
               eyebrow="Allergens"
               title="Manage allergen exclusions"
-              description="These are used to exclude meals automatically while you browse nearby listings."
+              description="These are used to exclude meals automatically while you browse nearby food sales."
             >
               <div className="flex flex-wrap gap-2">
                 {availableAllergens.map((allergen) => (
@@ -429,7 +493,7 @@ export default function SettingsPage() {
               <SettingsCard
                 eyebrow="Taste profile"
                 title="Preferred foods"
-                description="Pick the food tags you want prioritized while browsing listings."
+                description="Pick the food tags you want prioritized while browsing food sales."
               >
                 <div className="flex flex-wrap gap-2">
                   {availableFoodTags.map((tag) => (
@@ -485,3 +549,4 @@ export default function SettingsPage() {
     </main>
   );
 }
+

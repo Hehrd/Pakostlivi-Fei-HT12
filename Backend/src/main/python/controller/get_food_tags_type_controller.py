@@ -1,0 +1,1 @@
+#Endpoint to get the tags from the database via Spring boot request

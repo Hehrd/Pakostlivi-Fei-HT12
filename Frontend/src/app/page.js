@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
@@ -14,9 +14,9 @@ import {
 } from "@/lib/auth-client";
 import { isAdminUser, isRestaurantUser } from "@/lib/auth-user";
 import {
-  fetchNearbyListings,
+  fetchNearbyFoodSales,
   fetchNearbyRestaurants,
-  reserveListing,
+  reserveFoodSale,
 } from "@/lib/home-client";
 import {
   createReservationRecord,
@@ -29,7 +29,7 @@ const DEFAULT_LOCATION = {
 };
 
 const RESTAURANTS_FETCH_LIMIT = 24;
-const LISTINGS_PER_PAGE = 6;
+const FOOD_SALES_PER_PAGE = 6;
 
 function formatReservationExpiry(expiresAt) {
   if (!expiresAt) {
@@ -170,19 +170,19 @@ function ReservationNotice({
   );
 }
 
-function ListingCard({
-  listing,
+function FoodSaleCard({
+  foodSale,
   isSelected,
   isReserving,
   onReserve,
   onSelectRestaurant,
 }) {
   function handleReserve() {
-    if (listing.isReservedByCurrentUser || isReserving) {
+    if (foodSale.isReservedByCurrentUser || isReserving) {
       return;
     }
 
-    onReserve(listing);
+    onReserve(foodSale);
   }
 
   return (
@@ -199,7 +199,7 @@ function ListingCard({
       className={`rounded-[1.5rem] border p-4 transition-colors ${
         isSelected
           ? "border-primary bg-primary-soft/45"
-          : listing.isReservedByCurrentUser
+          : foodSale.isReservedByCurrentUser
             ? "border-emerald-300 bg-emerald-50/70"
             : "border-border bg-white hover:border-primary/35"
       }`}
@@ -207,35 +207,35 @@ function ListingCard({
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-2">
           <h3 className="text-base font-semibold text-foreground">
-            {listing.title}
+            {foodSale.title}
           </h3>
           <button
             type="button"
             onClick={(event) => {
               event.stopPropagation();
-              onSelectRestaurant(listing.restaurantId);
+              onSelectRestaurant(foodSale.restaurantId);
             }}
             className="text-sm font-medium text-primary hover:text-primary-strong"
           >
-            {listing.restaurantName}
+            {foodSale.restaurantName}
           </button>
         </div>
         <span className="rounded-full bg-primary-soft px-3 py-1 text-sm font-semibold text-primary">
-          {listing.price.toFixed(2)} lv
+          {foodSale.price.toFixed(2)} lv
         </span>
       </div>
 
       <p className="mt-3 text-sm leading-7 text-foreground/68">
-        {listing.description}
+        {foodSale.description}
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2">
         <span className="rounded-full border border-border bg-surface-muted px-3 py-1 text-xs font-medium text-foreground/72">
-          Pickup {listing.pickupWindow}
+          Pickup {foodSale.pickupWindow}
         </span>
-        {listing.tags.map((tag) => (
+        {foodSale.tags.map((tag) => (
           <span
-            key={`${listing.id}-${tag}`}
+            key={`${foodSale.id}-${tag}`}
             className="rounded-full border border-border bg-white px-3 py-1 text-xs font-medium text-foreground/68"
           >
             {tag}
@@ -243,11 +243,11 @@ function ListingCard({
         ))}
       </div>
 
-      {listing.allergens.length > 0 ? (
+      {foodSale.allergens.length > 0 ? (
         <div className="mt-4 flex flex-wrap gap-2">
-          {listing.allergens.map((allergen) => (
+          {foodSale.allergens.map((allergen) => (
             <span
-              key={`${listing.id}-${allergen}`}
+              key={`${foodSale.id}-${allergen}`}
               className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-900"
             >
               Contains {allergen}
@@ -258,14 +258,14 @@ function ListingCard({
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-4">
         <div className="flex flex-wrap gap-2">
-          {listing.isReservedByCurrentUser ? (
+          {foodSale.isReservedByCurrentUser ? (
             <>
               <span className="rounded-full border border-emerald-300 bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
                 Reserved
               </span>
-              {listing.currentUsersReservation?.pickupCode ? (
+              {foodSale.currentUsersReservation?.pickupCode ? (
                 <span className="rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-semibold text-emerald-900">
-                  Pickup code {listing.currentUsersReservation.pickupCode}
+                  Pickup code {foodSale.currentUsersReservation.pickupCode}
                 </span>
               ) : null}
             </>
@@ -282,14 +282,14 @@ function ListingCard({
             event.stopPropagation();
             handleReserve();
           }}
-          disabled={listing.isReservedByCurrentUser || isReserving}
+          disabled={foodSale.isReservedByCurrentUser || isReserving}
           className={`rounded-full px-4 py-2 text-xs font-semibold transition-colors ${
-            listing.isReservedByCurrentUser
+            foodSale.isReservedByCurrentUser
               ? "cursor-default border border-emerald-300 bg-emerald-100 text-emerald-800"
               : "bg-primary text-white hover:bg-primary-strong disabled:cursor-not-allowed disabled:opacity-80"
           }`}
         >
-          {listing.isReservedByCurrentUser
+          {foodSale.isReservedByCurrentUser
             ? "Reserved"
             : isReserving
               ? "Reserving..."
@@ -302,10 +302,10 @@ function ListingCard({
 
 function SelectedRestaurantPanel({
   restaurant,
-  listings,
+  foodSales,
   pagination,
   isLoading,
-  reservingListingId,
+  reservingFoodSaleId,
   onClear,
   onReserve,
   onSelectRestaurant,
@@ -316,7 +316,7 @@ function SelectedRestaurantPanel({
     return (
       <aside className="h-full rounded-[1.75rem] border border-dashed border-border bg-white/70 p-5 text-sm leading-7 text-foreground/64">
         Select a restaurant marker on the map to inspect only that
-        restaurant&apos;s listings here.
+        restaurant&apos;s food sales here.
       </aside>
     );
   }
@@ -358,22 +358,22 @@ function SelectedRestaurantPanel({
       <div className="mt-5 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
         {isLoading ? (
           <div className="rounded-2xl bg-surface-muted px-4 py-4 text-sm leading-7 text-foreground/68">
-            Loading listings from this restaurant...
+            Loading food sales from this restaurant...
           </div>
-        ) : listings.length > 0 ? (
-          listings.map((listing) => (
-            <ListingCard
-              key={listing.id}
-              listing={listing}
+        ) : foodSales.length > 0 ? (
+          foodSales.map((foodSale) => (
+            <FoodSaleCard
+              key={foodSale.id}
+              foodSale={foodSale}
               isSelected
-              isReserving={reservingListingId === listing.id}
+              isReserving={reservingFoodSaleId === foodSale.id}
               onReserve={onReserve}
               onSelectRestaurant={onSelectRestaurant}
             />
           ))
         ) : (
           <p className="rounded-2xl bg-surface-muted px-4 py-4 text-sm leading-7 text-foreground/68">
-            No listings from this restaurant match the current search and tag
+            No food sales from this restaurant match the current search and tag
             filters on this page.
           </p>
         )}
@@ -383,7 +383,7 @@ function SelectedRestaurantPanel({
         <PaginationBar
           page={pagination.page}
           totalPages={pagination.totalPages}
-          itemLabel="Restaurant listings"
+          itemLabel="Restaurant food sales"
           onPrevious={onPreviousPage}
           onNext={onNextPage}
         />
@@ -401,21 +401,21 @@ export default function HomePage() {
   const [location, setLocation] = useState(DEFAULT_LOCATION);
   const [locationState, setLocationState] = useState("locating");
   const [restaurants, setRestaurants] = useState([]);
-  const [listings, setListings] = useState([]);
-  const [selectedRestaurantListings, setSelectedRestaurantListings] = useState([]);
+  const [foodSales, setFoodSales] = useState([]);
+  const [selectedRestaurantFoodSales, setSelectedRestaurantFoodSales] = useState([]);
   const [availableTags, setAvailableTags] = useState([]);
   const [availableAllergens, setAvailableAllergens] = useState([]);
   const [searchText, setSearchText] = useState(searchParams.get("search") ?? "");
   const [draftAllergens, setDraftAllergens] = useState(user?.allergens ?? []);
   const [isRestaurantsLoading, setIsRestaurantsLoading] = useState(true);
-  const [isListingsLoading, setIsListingsLoading] = useState(true);
-  const [isSelectedRestaurantListingsLoading, setIsSelectedRestaurantListingsLoading] =
+  const [isFoodSalesLoading, setIsFoodSalesLoading] = useState(true);
+  const [isSelectedRestaurantFoodSalesLoading, setIsSelectedRestaurantFoodSalesLoading] =
     useState(false);
-  const [reservingListingId, setReservingListingId] = useState(null);
+  const [reservingFoodSaleId, setReservingFoodSaleId] = useState(null);
   const [latestReservation, setLatestReservation] = useState(null);
   const [isAllergenMenuOpen, setIsAllergenMenuOpen] = useState(false);
   const [isSavingAllergens, setIsSavingAllergens] = useState(false);
-  const [listingsPagination, setListingsPagination] = useState({
+  const [foodSalesPagination, setFoodSalesPagination] = useState({
     page: 1,
     totalPages: 1,
   });
@@ -426,10 +426,10 @@ export default function HomePage() {
 
   const searchQuery = searchParams.get("search") ?? "";
   const selectedRestaurantId = searchParams.get("restaurant") ?? "";
-  const listingPage = Math.max(1, Number(searchParams.get("listingPage")) || 1);
-  const selectedRestaurantListingPage = Math.max(
+  const foodSalePage = Math.max(1, Number(searchParams.get("foodSalePage")) || 1);
+  const selectedRestaurantFoodSalePage = Math.max(
     1,
-    Number(searchParams.get("restaurantListingPage")) || 1
+    Number(searchParams.get("restaurantFoodSalePage")) || 1
   );
   const activeTags = useMemo(() => searchParams.getAll("tag"), [searchParams]);
   const activeTagsKey = activeTags.join("|");
@@ -483,7 +483,7 @@ export default function HomePage() {
     }
 
     if (isRestaurantUser(user)) {
-      router.replace("/restaurant/listings");
+      router.replace("/restaurant/food-sales");
       return;
     }
 
@@ -574,42 +574,42 @@ export default function HomePage() {
       return;
     }
 
-    async function loadListings() {
-      setIsListingsLoading(true);
+    async function loadFoodSales() {
+      setIsFoodSalesLoading(true);
 
       try {
-        const payload = await fetchNearbyListings({
+        const payload = await fetchNearbyFoodSales({
           lat: location.lat,
           lng: location.lng,
           search: searchQuery,
           tag: requestTags,
           excludeAllergen: requestAllergens,
-          page: listingPage,
-          pageSize: LISTINGS_PER_PAGE,
+          page: foodSalePage,
+          pageSize: FOOD_SALES_PER_PAGE,
         });
 
-        setListings(payload?.listings ?? []);
+        setFoodSales(payload?.foodSales ?? []);
         setAvailableTags((current) =>
           [...new Set([...current, ...(payload?.availableTags ?? [])])].sort()
         );
-        setListingsPagination(
+        setFoodSalesPagination(
           payload?.pagination ?? {
             page: 1,
             totalPages: 1,
           }
         );
       } catch (error) {
-        toast.error("Unable to load nearby listings.", {
+        toast.error("Unable to load nearby food sales.", {
           description: error.message || "Please try again.",
         });
       } finally {
-        setIsListingsLoading(false);
+        setIsFoodSalesLoading(false);
       }
     }
 
-    loadListings();
+    loadFoodSales();
   }, [
-    listingPage,
+    foodSalePage,
     location.lat,
     location.lng,
     requestAllergens,
@@ -623,9 +623,9 @@ export default function HomePage() {
       return;
     }
 
-    async function loadSelectedRestaurantListings() {
+    async function loadSelectedRestaurantFoodSales() {
       if (!selectedRestaurantId) {
-        setSelectedRestaurantListings([]);
+        setSelectedRestaurantFoodSales([]);
         setSelectedRestaurantPagination({
           page: 1,
           totalPages: 1,
@@ -633,21 +633,21 @@ export default function HomePage() {
         return;
       }
 
-      setIsSelectedRestaurantListingsLoading(true);
+      setIsSelectedRestaurantFoodSalesLoading(true);
 
       try {
-        const payload = await fetchNearbyListings({
+        const payload = await fetchNearbyFoodSales({
           lat: location.lat,
           lng: location.lng,
           search: searchQuery,
           restaurant: selectedRestaurantId,
           tag: requestTags,
           excludeAllergen: requestAllergens,
-          page: selectedRestaurantListingPage,
-          pageSize: LISTINGS_PER_PAGE,
+          page: selectedRestaurantFoodSalePage,
+          pageSize: FOOD_SALES_PER_PAGE,
         });
 
-        setSelectedRestaurantListings(payload?.listings ?? []);
+        setSelectedRestaurantFoodSales(payload?.foodSales ?? []);
         setSelectedRestaurantPagination(
           payload?.pagination ?? {
             page: 1,
@@ -655,15 +655,15 @@ export default function HomePage() {
           }
         );
       } catch (error) {
-        toast.error("Unable to load listings for this restaurant.", {
+        toast.error("Unable to load food sales for this restaurant.", {
           description: error.message || "Please try again.",
         });
       } finally {
-        setIsSelectedRestaurantListingsLoading(false);
+        setIsSelectedRestaurantFoodSalesLoading(false);
       }
     }
 
-    loadSelectedRestaurantListings();
+    loadSelectedRestaurantFoodSales();
   }, [
     location.lat,
     location.lng,
@@ -671,7 +671,7 @@ export default function HomePage() {
     requestTags,
     searchQuery,
     selectedRestaurantId,
-    selectedRestaurantListingPage,
+    selectedRestaurantFoodSalePage,
     shouldLoadDiscovery,
   ]);
 
@@ -700,8 +700,8 @@ export default function HomePage() {
         nextParams.append(key, value);
       }
 
-      nextParams.delete("listingPage");
-      nextParams.delete("restaurantListingPage");
+      nextParams.delete("foodSalePage");
+      nextParams.delete("restaurantFoodSalePage");
     });
   }
 
@@ -710,8 +710,8 @@ export default function HomePage() {
 
     updateQueryParams((nextParams) => {
       nextParams.delete("search");
-      nextParams.delete("listingPage");
-      nextParams.delete("restaurantListingPage");
+      nextParams.delete("foodSalePage");
+      nextParams.delete("restaurantFoodSalePage");
 
       const trimmedSearch = searchText.trim();
 
@@ -723,7 +723,7 @@ export default function HomePage() {
 
   function handleSelectRestaurant(restaurantId) {
     updateQueryParams((nextParams) => {
-      nextParams.delete("restaurantListingPage");
+      nextParams.delete("restaurantFoodSalePage");
 
       if (nextParams.get("restaurant") === restaurantId) {
         nextParams.delete("restaurant");
@@ -737,7 +737,7 @@ export default function HomePage() {
   function clearSelectedRestaurant() {
     updateQueryParams((nextParams) => {
       nextParams.delete("restaurant");
-      nextParams.delete("restaurantListingPage");
+      nextParams.delete("restaurantFoodSalePage");
     });
   }
 
@@ -745,21 +745,21 @@ export default function HomePage() {
     updateQueryParams((nextParams) => {
       nextParams.delete("search");
       nextParams.delete("tag");
-      nextParams.delete("listingPage");
-      nextParams.delete("restaurantListingPage");
+      nextParams.delete("foodSalePage");
+      nextParams.delete("restaurantFoodSalePage");
       setSearchText("");
     });
   }
 
-  function setListingsPage(page) {
+  function setFoodSalesPage(page) {
     updateQueryParams((nextParams) => {
-      nextParams.set("listingPage", String(page));
+      nextParams.set("foodSalePage", String(page));
     });
   }
 
-  function setSelectedRestaurantListingsPage(page) {
+  function setSelectedRestaurantFoodSalesPage(page) {
     updateQueryParams((nextParams) => {
-      nextParams.set("restaurantListingPage", String(page));
+      nextParams.set("restaurantFoodSalePage", String(page));
     });
   }
 
@@ -771,65 +771,65 @@ export default function HomePage() {
     );
   }
 
-  function applyReservedListingUpdate(listingId, listingUpdate) {
-    if (!listingUpdate) {
+  function applyReservedFoodSaleUpdate(foodSaleId, foodSaleUpdate) {
+    if (!foodSaleUpdate) {
       return;
     }
 
-    function mergeListing(currentListing) {
-      if (currentListing.id !== listingId) {
-        return currentListing;
+    function mergeFoodSale(currentFoodSale) {
+      if (currentFoodSale.id !== foodSaleId) {
+        return currentFoodSale;
       }
 
       const nextReservationCount =
-        listingUpdate.reservationCount ?? (currentListing.reservationCount ?? 0) + 1;
+        foodSaleUpdate.reservationCount ?? (currentFoodSale.reservationCount ?? 0) + 1;
       const nextReservedQuantity =
-        listingUpdate.reservedQuantity ?? (currentListing.reservedQuantity ?? 0) + 1;
+        foodSaleUpdate.reservedQuantity ?? (currentFoodSale.reservedQuantity ?? 0) + 1;
 
       return {
-        ...currentListing,
-        ...listingUpdate,
+        ...currentFoodSale,
+        ...foodSaleUpdate,
         reservationCount: nextReservationCount,
         reservedQuantity: nextReservedQuantity,
       };
     }
 
-    setListings((current) => current.map(mergeListing));
-    setSelectedRestaurantListings((current) => current.map(mergeListing));
+    setFoodSales((current) => current.map(mergeFoodSale));
+    setSelectedRestaurantFoodSales((current) => current.map(mergeFoodSale));
   }
 
-  async function handleReserveListing(listing) {
-    if (!listing?.id || reservingListingId === listing.id || listing.isReservedByCurrentUser) {
+  async function handleReserveFoodSale(foodSale) {
+    if (!foodSale?.id || reservingFoodSaleId === foodSale.id || foodSale.isReservedByCurrentUser) {
       return;
     }
 
-    setReservingListingId(listing.id);
+    setReservingFoodSaleId(foodSale.id);
 
     try {
-      const payload = await reserveListing(listing.id);
-      const reservationRecord = createReservationRecord(listing, payload);
+      const payload = await reserveFoodSale(foodSale.id);
+      const reservationRecord = createReservationRecord(foodSale, payload);
 
       saveStoredReservation(user, reservationRecord);
-      applyReservedListingUpdate(listing.id, payload?.listing);
+      applyReservedFoodSaleUpdate(foodSale.id, payload?.foodSale);
       setLatestReservation(reservationRecord);
 
-      toast.success("Listing reserved.", {
+      toast.success("Food sale reserved.", {
         description:
           payload?.reservation?.pickupCode
             ? `Pickup code ${payload.reservation.pickupCode}. Pickup window ${payload.reservation.pickupWindow}.`
             : payload?.reservation?.expiresAt
               ? `Reservation created. It currently expires at ${new Date(payload.reservation.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`
-              : `Pickup window ${payload?.reservation?.pickupWindow ?? listing.pickupWindow}.`,
+              : `Pickup window ${payload?.reservation?.pickupWindow ?? foodSale.pickupWindow}.`,
       });
     } catch (error) {
       toast.error(
-        error.status === 409 ? "Already reserved." : "Unable to reserve listing.",
+        error.status === 409 ? "Already reserved." : "Unable to reserve food sale.",
         {
           description: error.message || "Please try again.",
         }
       );
     } finally {
-      setReservingListingId(null);
+      setReservingFoodSaleId(null);
     }
   }
 
@@ -844,9 +844,9 @@ export default function HomePage() {
       setCurrentUser(nextUser);
       setIsAllergenMenuOpen(false);
       toast.success("Saved allergen preferences.");
-      setListingsPage(1);
+      setFoodSalesPage(1);
       if (selectedRestaurantId) {
-        setSelectedRestaurantListingsPage(1);
+        setSelectedRestaurantFoodSalesPage(1);
       }
     } catch (error) {
       toast.error("Unable to update allergens.", {
@@ -914,7 +914,7 @@ export default function HomePage() {
                 </h1>
                 <p className="max-w-2xl text-sm leading-7 text-foreground/68 sm:text-base">
                   Browse nearby restaurants on the map, then open their active
-                  surplus listings from the panels on the right.
+                  surplus food sales from the panels on the right.
                 </p>
               </div>
             </div>
@@ -983,10 +983,10 @@ export default function HomePage() {
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-1">
                 <p className="text-sm font-medium uppercase tracking-[0.22em] text-primary">
-                  Nearby Listings
+                  Nearby Food Sales
                 </p>
                 <p className="text-sm leading-7 text-foreground/66">
-                  Search by listing title and narrow results using food tags.
+                  Search by food sale title and narrow results using food tags.
                   Your saved allergens are excluded automatically.
                 </p>
               </div>
@@ -1005,7 +1005,7 @@ export default function HomePage() {
                 type="search"
                 value={searchText}
                 onChange={(event) => setSearchText(event.target.value)}
-                placeholder="Search listing title"
+                placeholder="Search food sale title"
                 className="min-w-0 flex-1 rounded-2xl border border-border bg-white px-4 py-3 text-sm text-foreground outline-none placeholder:text-foreground/42 focus:border-primary focus:ring-4 focus:ring-primary/10"
               />
               <button
@@ -1135,23 +1135,23 @@ export default function HomePage() {
               <div className="xl:hidden">
                 <SelectedRestaurantPanel
                   restaurant={selectedRestaurant}
-                  listings={selectedRestaurantListings}
+                  foodSales={selectedRestaurantFoodSales}
                   pagination={selectedRestaurantPagination}
-                  isLoading={isSelectedRestaurantListingsLoading}
-                  reservingListingId={reservingListingId}
+                  isLoading={isSelectedRestaurantFoodSalesLoading}
+                  reservingFoodSaleId={reservingFoodSaleId}
                   onClear={clearSelectedRestaurant}
-                  onReserve={handleReserveListing}
+                  onReserve={handleReserveFoodSale}
                   onSelectRestaurant={handleSelectRestaurant}
                   onPreviousPage={() =>
-                    setSelectedRestaurantListingsPage(
-                      Math.max(1, selectedRestaurantListingPage - 1)
+                    setSelectedRestaurantFoodSalesPage(
+                      Math.max(1, selectedRestaurantFoodSalePage - 1)
                     )
                   }
                   onNextPage={() =>
-                    setSelectedRestaurantListingsPage(
+                    setSelectedRestaurantFoodSalesPage(
                       Math.min(
                         selectedRestaurantPagination.totalPages,
-                        selectedRestaurantListingPage + 1
+                        selectedRestaurantFoodSalePage + 1
                       )
                     )
                   }
@@ -1159,37 +1159,37 @@ export default function HomePage() {
               </div>
             ) : null}
 
-            {isListingsLoading ? (
+            {isFoodSalesLoading ? (
               <div className="rounded-[1.75rem] border border-border bg-white px-5 py-6 text-sm text-foreground/64">
-                Loading nearby listings...
+                Loading nearby food sales...
               </div>
-            ) : listings.length > 0 ? (
-              listings.map((listing) => (
-                <ListingCard
-                  key={listing.id}
-                  listing={listing}
-                  isSelected={listing.restaurantId === selectedRestaurantId}
-                  isReserving={reservingListingId === listing.id}
-                  onReserve={handleReserveListing}
+            ) : foodSales.length > 0 ? (
+              foodSales.map((foodSale) => (
+                <FoodSaleCard
+                  key={foodSale.id}
+                  foodSale={foodSale}
+                  isSelected={foodSale.restaurantId === selectedRestaurantId}
+                  isReserving={reservingFoodSaleId === foodSale.id}
+                  onReserve={handleReserveFoodSale}
                   onSelectRestaurant={handleSelectRestaurant}
                 />
               ))
             ) : (
               <div className="rounded-[1.75rem] border border-dashed border-border bg-white px-5 py-6 text-sm leading-7 text-foreground/64">
-                No listings match your current search and tag filters.
+                No food sales match your current search and tag filters.
               </div>
             )}
           </div>
 
           <div className="mt-4">
             <PaginationBar
-              page={listingsPagination.page}
-              totalPages={listingsPagination.totalPages}
-              itemLabel="Listings"
-              onPrevious={() => setListingsPage(Math.max(1, listingPage - 1))}
+              page={foodSalesPagination.page}
+              totalPages={foodSalesPagination.totalPages}
+              itemLabel="Food sales"
+              onPrevious={() => setFoodSalesPage(Math.max(1, foodSalePage - 1))}
               onNext={() =>
-                setListingsPage(
-                  Math.min(listingsPagination.totalPages, listingPage + 1)
+                setFoodSalesPage(
+                  Math.min(foodSalesPagination.totalPages, foodSalePage + 1)
                 )
               }
             />
@@ -1199,23 +1199,23 @@ export default function HomePage() {
         <div className="hidden xl:block xl:h-full xl:min-h-0">
           <SelectedRestaurantPanel
             restaurant={selectedRestaurant}
-            listings={selectedRestaurantListings}
+            foodSales={selectedRestaurantFoodSales}
             pagination={selectedRestaurantPagination}
-            isLoading={isSelectedRestaurantListingsLoading}
-            reservingListingId={reservingListingId}
+            isLoading={isSelectedRestaurantFoodSalesLoading}
+            reservingFoodSaleId={reservingFoodSaleId}
             onClear={clearSelectedRestaurant}
-            onReserve={handleReserveListing}
+            onReserve={handleReserveFoodSale}
             onSelectRestaurant={handleSelectRestaurant}
             onPreviousPage={() =>
-              setSelectedRestaurantListingsPage(
-                Math.max(1, selectedRestaurantListingPage - 1)
+              setSelectedRestaurantFoodSalesPage(
+                Math.max(1, selectedRestaurantFoodSalePage - 1)
               )
             }
             onNextPage={() =>
-              setSelectedRestaurantListingsPage(
+              setSelectedRestaurantFoodSalesPage(
                 Math.min(
                   selectedRestaurantPagination.totalPages,
-                  selectedRestaurantListingPage + 1
+                  selectedRestaurantFoodSalePage + 1
                 )
               )
             }
@@ -1225,3 +1225,4 @@ export default function HomePage() {
     </main>
   );
 }
+

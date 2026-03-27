@@ -1,4 +1,4 @@
-import { http, HttpResponse } from "msw";
+﻿import { http, HttpResponse } from "msw";
 
 const COMMON_ALLERGENS = [
   { id: "milk", label: "Milk" },
@@ -62,7 +62,7 @@ const RESTAURANTS = [
   },
 ];
 
-const LISTINGS = [
+const FOOD_SALES = [
   {
     id: "l1",
     restaurantId: "r1",
@@ -188,7 +188,7 @@ const LISTINGS = [
 const RESERVATIONS = [
   {
     id: "res1",
-    listingId: "l1",
+    foodSaleId: "l1",
     customerName: "Mila Petrova",
     customerEmail: "mila@example.com",
     quantity: 2,
@@ -197,7 +197,7 @@ const RESERVATIONS = [
   },
   {
     id: "res2",
-    listingId: "l1",
+    foodSaleId: "l1",
     customerName: "Ivan Georgiev",
     customerEmail: "ivan@example.com",
     quantity: 1,
@@ -206,7 +206,7 @@ const RESERVATIONS = [
   },
   {
     id: "res3",
-    listingId: "l2",
+    foodSaleId: "l2",
     customerName: "Teodora Marinova",
     customerEmail: "teodora@example.com",
     quantity: 1,
@@ -215,7 +215,7 @@ const RESERVATIONS = [
   },
   {
     id: "res4",
-    listingId: "l2",
+    foodSaleId: "l2",
     customerName: "Georgi Stoyanov",
     customerEmail: "georgi@example.com",
     quantity: 3,
@@ -224,7 +224,7 @@ const RESERVATIONS = [
   },
   {
     id: "res5",
-    listingId: "l3",
+    foodSaleId: "l3",
     customerName: "Sofia Nikolova",
     customerEmail: "sofia@example.com",
     quantity: 2,
@@ -332,7 +332,7 @@ function parseLocation(searchParams) {
 }
 
 function getAvailableTags() {
-  return [...new Set(LISTINGS.flatMap((listing) => listing.tags))].sort();
+  return [...new Set(FOOD_SALES.flatMap((foodSale) => foodSale.tags))].sort();
 }
 
 function buildGoogleMapsUrl({ lat, lng }) {
@@ -343,17 +343,17 @@ function getUserFullName(user) {
   return [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim();
 }
 
-function getRestaurantListingCount(restaurantId) {
-  return LISTINGS.filter((listing) => listing.restaurantId === restaurantId).length;
+function getRestaurantFoodSaleCount(restaurantId) {
+  return FOOD_SALES.filter((foodSale) => foodSale.restaurantId === restaurantId).length;
 }
 
 function getRestaurantReservationCount(restaurantId) {
-  const ownedListingIds = LISTINGS.filter(
-    (listing) => listing.restaurantId === restaurantId
-  ).map((listing) => listing.id);
+  const ownedFoodSaleIds = FOOD_SALES.filter(
+    (foodSale) => foodSale.restaurantId === restaurantId
+  ).map((foodSale) => foodSale.id);
 
   return RESERVATIONS.filter((reservation) =>
-    ownedListingIds.includes(reservation.listingId)
+    ownedFoodSaleIds.includes(reservation.foodSaleId)
   ).length;
 }
 
@@ -361,7 +361,7 @@ function getAdminRestaurants() {
   return RESTAURANTS.map((restaurant) => ({
     ...restaurant,
     googleMapsUrl: restaurant.googleMapsUrl ?? buildGoogleMapsUrl(restaurant),
-    listingCount: getRestaurantListingCount(restaurant.id),
+    foodSaleCount: getRestaurantFoodSaleCount(restaurant.id),
   })).sort((first, second) => first.name.localeCompare(second.name));
 }
 
@@ -383,8 +383,8 @@ function getNextReservationId() {
   return `res${maxId + 1}`;
 }
 
-function buildPickupCode(listingId, reservationId) {
-  return `PK-${String(listingId).toUpperCase()}-${String(reservationId)
+function buildPickupCode(foodSaleId, reservationId) {
+  return `PK-${String(foodSaleId).toUpperCase()}-${String(reservationId)
     .replace(/^res/i, "")
     .padStart(3, "0")}`;
 }
@@ -412,30 +412,30 @@ function enrichRestaurants(location) {
         2
       )
     ),
-    listingCount: LISTINGS.filter(
-      (listing) => listing.restaurantId === restaurant.id
+    foodSaleCount: FOOD_SALES.filter(
+      (foodSale) => foodSale.restaurantId === restaurant.id
     ).length,
   })).sort((first, second) => first.distanceKm - second.distanceKm);
 }
 
-function enrichListings(location, viewer = null) {
-  return LISTINGS.map((listing) => {
+function enrichFoodSales(location, viewer = null) {
+  return FOOD_SALES.map((foodSale) => {
     const restaurant = RESTAURANTS.find(
-      (item) => item.id === listing.restaurantId
+      (item) => item.id === foodSale.restaurantId
     );
-    const listingReservations = RESERVATIONS.filter(
-      (reservation) => reservation.listingId === listing.id
+    const foodSaleReservations = RESERVATIONS.filter(
+      (reservation) => reservation.foodSaleId === foodSale.id
     );
     const currentUsersReservation =
       viewer?.email && viewer.role === "CLIENT"
-        ? listingReservations.find(
+        ? foodSaleReservations.find(
             (reservation) =>
               reservation.customerEmail.toLowerCase() === viewer.email.toLowerCase()
           ) ?? null
         : null;
 
     return {
-      ...listing,
+      ...foodSale,
       restaurantName: restaurant?.name ?? "Unknown restaurant",
       restaurantAddress:
         restaurant?.address ?? restaurant?.googleMapsUrl ?? "Google Maps link available",
@@ -455,8 +455,8 @@ function enrichListings(location, viewer = null) {
           restaurant?.lng ?? DEFAULT_LOCATION.lng
         ).toFixed(2)
       ),
-      reservationCount: listingReservations.length,
-      reservedQuantity: listingReservations.reduce(
+      reservationCount: foodSaleReservations.length,
+      reservedQuantity: foodSaleReservations.reduce(
         (sum, reservation) => sum + reservation.quantity,
         0
       ),
@@ -488,22 +488,22 @@ function getCurrentUsersRestaurant() {
   return {
     ...restaurant,
     googleMapsUrl: restaurant.googleMapsUrl ?? buildGoogleMapsUrl(restaurant),
-    listingCount: getRestaurantListingCount(restaurant.id),
+    foodSaleCount: getRestaurantFoodSaleCount(restaurant.id),
     reservationCount: getRestaurantReservationCount(restaurant.id),
   };
 }
 
-function getRestaurantListingsForOwner(restaurantId) {
-  return LISTINGS.filter((listing) => listing.restaurantId === restaurantId)
-    .map((listing) => {
-      const listingReservations = RESERVATIONS.filter(
-        (reservation) => reservation.listingId === listing.id
+function getRestaurantFoodSalesForOwner(restaurantId) {
+  return FOOD_SALES.filter((foodSale) => foodSale.restaurantId === restaurantId)
+    .map((foodSale) => {
+      const foodSaleReservations = RESERVATIONS.filter(
+        (reservation) => reservation.foodSaleId === foodSale.id
       );
 
       return {
-        ...listing,
-        reservationCount: listingReservations.length,
-        reservedQuantity: listingReservations.reduce(
+        ...foodSale,
+        reservationCount: foodSaleReservations.length,
+        reservedQuantity: foodSaleReservations.reduce(
           (sum, reservation) => sum + reservation.quantity,
           0
         ),
@@ -512,15 +512,15 @@ function getRestaurantListingsForOwner(restaurantId) {
     .sort((first, second) => first.title.localeCompare(second.title));
 }
 
-function getReservationsForListing(listingId) {
-  const listing = LISTINGS.find((item) => item.id === listingId);
+function getReservationsForFoodSale(foodSaleId) {
+  const foodSale = FOOD_SALES.find((item) => item.id === foodSaleId);
 
-  return RESERVATIONS.filter((reservation) => reservation.listingId === listingId)
+  return RESERVATIONS.filter((reservation) => reservation.foodSaleId === foodSaleId)
     .map((reservation) => ({
       ...reservation,
-      listingTitle: listing?.title ?? "Unknown listing",
-      pickupWindow: listing?.pickupWindow ?? "",
-      totalPrice: Number(((listing?.price ?? 0) * reservation.quantity).toFixed(2)),
+      foodSaleTitle: foodSale?.title ?? "Unknown food sale",
+      pickupWindow: foodSale?.pickupWindow ?? "",
+      totalPrice: Number(((foodSale?.price ?? 0) * reservation.quantity).toFixed(2)),
     }))
     .sort(
       (first, second) =>
@@ -528,30 +528,30 @@ function getReservationsForListing(listingId) {
     );
 }
 
-function matchesFilters(listing, searchParams) {
+function matchesFilters(foodSale, searchParams) {
   const search = searchParams.get("search")?.trim().toLowerCase() ?? "";
   const restaurantId = searchParams.get("restaurant");
   const selectedTags = searchParams.getAll("tag");
   const excludedAllergens = searchParams.getAll("excludeAllergen");
 
-  if (search && !listing.title.toLowerCase().includes(search)) {
+  if (search && !foodSale.title.toLowerCase().includes(search)) {
     return false;
   }
 
-  if (restaurantId && listing.restaurantId !== restaurantId) {
+  if (restaurantId && foodSale.restaurantId !== restaurantId) {
     return false;
   }
 
   if (
     selectedTags.length > 0 &&
-    !selectedTags.some((tag) => listing.tags.includes(tag))
+    !selectedTags.some((tag) => foodSale.tags.includes(tag))
   ) {
     return false;
   }
 
   if (
     excludedAllergens.length > 0 &&
-    excludedAllergens.some((allergen) => listing.allergens.includes(allergen))
+    excludedAllergens.some((allergen) => foodSale.allergens.includes(allergen))
   ) {
     return false;
   }
@@ -987,8 +987,8 @@ export const handlers = [
     return HttpResponse.json(currentUser);
   }),
 
-  http.get("*/restaurant/listings", async ({ request }) => {
-    const guardResponse = requireRestaurant("/restaurant/listings", request);
+  http.get("*/restaurant/food-sales", async ({ request }) => {
+    const guardResponse = requireRestaurant("/restaurant/food-sales", request);
 
     if (guardResponse) {
       return guardResponse;
@@ -1002,7 +1002,7 @@ export const handlers = [
           404,
           "Not Found",
           "No restaurant is assigned to this account",
-          "/restaurant/listings"
+          "/restaurant/food-sales"
         ),
         {
           status: 404,
@@ -1010,25 +1010,25 @@ export const handlers = [
       );
     }
 
-    const listings = getRestaurantListingsForOwner(restaurant.id);
+    const foodSales = getRestaurantFoodSalesForOwner(restaurant.id);
 
     return HttpResponse.json({
       restaurant,
-      listings,
+      foodSales,
       totals: {
-        listingCount: listings.length,
+        foodSaleCount: foodSales.length,
         reservationCount: restaurant.reservationCount,
-        reservedMeals: listings.reduce(
-          (sum, listing) => sum + (listing.reservedQuantity ?? 0),
+        reservedMeals: foodSales.reduce(
+          (sum, foodSale) => sum + (foodSale.reservedQuantity ?? 0),
           0
         ),
       },
     });
   }),
 
-  http.get("*/restaurant/listings/:listingId/reservations", async ({ request, params }) => {
+  http.get("*/restaurant/food-sales/:foodSaleId/reservations", async ({ request, params }) => {
     const guardResponse = requireRestaurant(
-      `/restaurant/listings/${params.listingId}/reservations`,
+      `/restaurant/food-sales/${params.foodSaleId}/reservations`,
       request
     );
 
@@ -1044,7 +1044,7 @@ export const handlers = [
           404,
           "Not Found",
           "No restaurant is assigned to this account",
-          `/restaurant/listings/${params.listingId}/reservations`
+          `/restaurant/food-sales/${params.foodSaleId}/reservations`
         ),
         {
           status: 404,
@@ -1052,15 +1052,15 @@ export const handlers = [
       );
     }
 
-    const listing = LISTINGS.find((item) => item.id === params.listingId);
+    const foodSale = FOOD_SALES.find((item) => item.id === params.foodSaleId);
 
-    if (!listing || listing.restaurantId !== restaurant.id) {
+    if (!foodSale || foodSale.restaurantId !== restaurant.id) {
       return HttpResponse.json(
         buildAuthError(
           404,
           "Not Found",
-          "Listing not found for this restaurant",
-          `/restaurant/listings/${params.listingId}/reservations`
+          "Food sale not found for this restaurant",
+          `/restaurant/food-sales/${params.foodSaleId}/reservations`
         ),
         {
           status: 404,
@@ -1069,17 +1069,17 @@ export const handlers = [
     }
 
     return HttpResponse.json({
-      listing: {
-        ...listing,
+      foodSale: {
+        ...foodSale,
         restaurantName: restaurant.name,
       },
-      reservations: getReservationsForListing(listing.id),
+      reservations: getReservationsForFoodSale(foodSale.id),
     });
   }),
 
-  http.post("*/listings/:listingId/reserve", async ({ request, params }) => {
+  http.post("*/food-sales/:foodSaleId/reserve", async ({ request, params }) => {
     const guardResponse = requireClient(
-      `/listings/${params.listingId}/reserve`,
+      `/food-sales/${params.foodSaleId}/reserve`,
       request
     );
 
@@ -1087,15 +1087,15 @@ export const handlers = [
       return guardResponse;
     }
 
-    const listing = LISTINGS.find((item) => item.id === params.listingId);
+    const foodSale = FOOD_SALES.find((item) => item.id === params.foodSaleId);
 
-    if (!listing) {
+    if (!foodSale) {
       return HttpResponse.json(
         buildAuthError(
           404,
           "Not Found",
-          "Listing not found",
-          `/listings/${params.listingId}/reserve`
+          "Food sale not found",
+          `/food-sales/${params.foodSaleId}/reserve`
         ),
         {
           status: 404,
@@ -1105,7 +1105,7 @@ export const handlers = [
 
     const existingReservation = RESERVATIONS.find(
       (reservation) =>
-        reservation.listingId === listing.id &&
+        reservation.foodSaleId === foodSale.id &&
         reservation.customerEmail.toLowerCase() === currentUser.email.toLowerCase()
     );
 
@@ -1114,8 +1114,8 @@ export const handlers = [
         buildAuthError(
           409,
           "Conflict",
-          "You already reserved this listing",
-          `/listings/${params.listingId}/reserve`
+          "You already reserved this food sale",
+          `/food-sales/${params.foodSaleId}/reserve`
         ),
         {
           status: 409,
@@ -1126,33 +1126,33 @@ export const handlers = [
     const reservationId = getNextReservationId();
     const reservation = {
       id: reservationId,
-      listingId: listing.id,
+      foodSaleId: foodSale.id,
       customerName: getUserFullName(currentUser) || currentUser.email,
       customerEmail: currentUser.email,
       quantity: 1,
       status: "CONFIRMED",
       reservedAt: new Date().toISOString(),
-      pickupCode: buildPickupCode(listing.id, reservationId),
+      pickupCode: buildPickupCode(foodSale.id, reservationId),
     };
 
     RESERVATIONS.push(reservation);
 
     return HttpResponse.json(
       {
-        message: "Listing reserved.",
+        message: "Food sale reserved.",
         reservation: {
           ...reservation,
-          listingTitle: listing.title,
-          pickupWindow: listing.pickupWindow,
-          totalPrice: Number((listing.price * reservation.quantity).toFixed(2)),
+          foodSaleTitle: foodSale.title,
+          pickupWindow: foodSale.pickupWindow,
+          totalPrice: Number((foodSale.price * reservation.quantity).toFixed(2)),
         },
-        listing: {
-          id: listing.id,
+        foodSale: {
+          id: foodSale.id,
           reservationCount: RESERVATIONS.filter(
-            (item) => item.listingId === listing.id
+            (item) => item.foodSaleId === foodSale.id
           ).length,
           reservedQuantity: RESERVATIONS.filter(
-            (item) => item.listingId === listing.id
+            (item) => item.foodSaleId === foodSale.id
           ).reduce((sum, item) => sum + item.quantity, 0),
           isReservedByCurrentUser: true,
           currentUsersReservation: {
@@ -1222,7 +1222,7 @@ export const handlers = [
         message: "Restaurant created.",
         restaurant: {
           ...nextRestaurant,
-          listingCount: 0,
+          foodSaleCount: 0,
         },
       },
       {
@@ -1293,7 +1293,7 @@ export const handlers = [
       message: "Restaurant updated.",
       restaurant: {
         ...updatedRestaurant,
-        listingCount: getRestaurantListingCount(updatedRestaurant.id),
+        foodSaleCount: getRestaurantFoodSaleCount(updatedRestaurant.id),
       },
     });
   }),
@@ -1328,9 +1328,9 @@ export const handlers = [
 
     RESTAURANTS.splice(restaurantIndex, 1);
 
-    for (let index = LISTINGS.length - 1; index >= 0; index -= 1) {
-      if (LISTINGS[index].restaurantId === params.restaurantId) {
-        LISTINGS.splice(index, 1);
+    for (let index = FOOD_SALES.length - 1; index >= 0; index -= 1) {
+      if (FOOD_SALES[index].restaurantId === params.restaurantId) {
+        FOOD_SALES.splice(index, 1);
       }
     }
 
@@ -1384,19 +1384,19 @@ export const handlers = [
     });
   }),
 
-  http.get("*/listings/nearby", async ({ request }) => {
+  http.get("*/food-sales/nearby", async ({ request }) => {
     const url = new URL(request.url);
     const location = parseLocation(url.searchParams);
     const viewer = hydrateCurrentUserFromRequest(request);
-    const filteredListings = enrichListings(location, viewer).filter((listing) =>
-      matchesFilters(listing, url.searchParams)
+    const filteredFoodSales = enrichFoodSales(location, viewer).filter((foodSale) =>
+      matchesFilters(foodSale, url.searchParams)
     );
     const page = Number(url.searchParams.get("page")) || 1;
     const pageSize = Number(url.searchParams.get("pageSize")) || 6;
-    const pagination = paginate(filteredListings, page, pageSize);
+    const pagination = paginate(filteredFoodSales, page, pageSize);
 
     return HttpResponse.json({
-      listings: pagination.items,
+      foodSales: pagination.items,
       pagination: {
         page: pagination.page,
         pageSize: pagination.pageSize,
@@ -1408,3 +1408,4 @@ export const handlers = [
     });
   }),
 ];
+

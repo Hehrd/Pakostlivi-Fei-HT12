@@ -1,4 +1,4 @@
-export function formatEnumLabel(value) {
+﻿export function formatEnumLabel(value) {
   return String(value ?? "")
     .toLowerCase()
     .split("_")
@@ -31,7 +31,7 @@ export function normalizeRestaurantRecord(restaurant, options = {}) {
     lat,
     lng,
     googleMapsUrl,
-    listingCount: options.listingCount ?? restaurant?.listingCount ?? 0,
+    foodSaleCount: options.foodSaleCount ?? restaurant?.foodSaleCount ?? 0,
     distanceKm: options.distanceKm ?? restaurant?.distanceKm ?? 0,
     ownerId:
       options.ownerId ??
@@ -79,3 +79,4 @@ export function normalizePagedPayload(payload, key) {
     },
   };
 }
+

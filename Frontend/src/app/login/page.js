@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -54,10 +54,10 @@ export default function LoginPage() {
         queueRedirectToast({
           type: "success",
           title: "Restaurant login successful.",
-          description: "Opening your restaurant workspace and listings.",
+          description: "Opening your restaurant workspace and food sales.",
         });
 
-        router.push("/restaurant/listings");
+        router.push("/restaurant/food-sales");
         return;
       }
 
@@ -281,3 +281,4 @@ export default function LoginPage() {
     </main>
   );
 }
+

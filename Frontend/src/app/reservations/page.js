@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -176,7 +176,7 @@ export default function ReservationsPage() {
     }
 
     if (isRestaurantUser(user)) {
-      router.replace("/restaurant/listings");
+      router.replace("/restaurant/food-sales");
     }
   }, [isAuthLoading, router, user]);
 
@@ -339,3 +339,4 @@ export default function ReservationsPage() {
     </main>
   );
 }
+

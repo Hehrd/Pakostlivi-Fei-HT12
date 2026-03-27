@@ -1,4 +1,4 @@
-import { API_MODE, apiFetch } from "@/lib/api";
+﻿import { API_MODE, apiFetch } from "@/lib/api";
 import {
   formatEnumLabel,
   normalizePagedPayload,
@@ -108,7 +108,7 @@ function paginate(items, page, pageSize) {
   };
 }
 
-function matchesFilters(listing, filters) {
+function matchesFilters(foodSale, filters) {
   const search = filters.search?.trim().toLowerCase() ?? "";
   const restaurantId = filters.restaurant ? String(filters.restaurant) : "";
   const selectedTags = Array.isArray(filters.tag) ? filters.tag : [];
@@ -116,21 +116,21 @@ function matchesFilters(listing, filters) {
     ? filters.excludeAllergen
     : [];
 
-  if (search && !listing.title.toLowerCase().includes(search)) {
+  if (search && !foodSale.title.toLowerCase().includes(search)) {
     return false;
   }
 
-  if (restaurantId && listing.restaurantId !== restaurantId) {
+  if (restaurantId && foodSale.restaurantId !== restaurantId) {
     return false;
   }
 
-  if (selectedTags.length > 0 && !selectedTags.some((tag) => listing.tags.includes(tag))) {
+  if (selectedTags.length > 0 && !selectedTags.some((tag) => foodSale.tags.includes(tag))) {
     return false;
   }
 
   if (
     excludedAllergens.length > 0 &&
-    excludedAllergens.some((allergen) => listing.allergens.includes(allergen))
+    excludedAllergens.some((allergen) => foodSale.allergens.includes(allergen))
   ) {
     return false;
   }
@@ -211,12 +211,12 @@ async function fetchRealRestaurantsWithCounts(params) {
 
         return {
           ...restaurant,
-          listingCount: Array.isArray(sales) ? sales.length : 0,
+          foodSaleCount: Array.isArray(sales) ? sales.length : 0,
         };
       } catch {
         return {
           ...restaurant,
-          listingCount: 0,
+          foodSaleCount: 0,
         };
       }
     })
@@ -232,7 +232,7 @@ async function fetchRealRestaurantsWithCounts(params) {
   };
 }
 
-async function fetchRealListings(params) {
+async function fetchRealFoodSales(params) {
   const [{ restaurants }, { foodTagLookup, allergenLookup }] = await Promise.all([
     fetchNearbyRestaurantRecords({
       lat: params?.lat,
@@ -287,7 +287,7 @@ async function fetchRealListings(params) {
 
   const foodLookup = new Map(foods);
 
-  const listings = salesByRestaurant
+  const foodSales = salesByRestaurant
     .flatMap(({ restaurant, sales }) =>
       sales.map((sale) => {
         const food = foodLookup.get(Number(sale?.foodId));
@@ -327,17 +327,17 @@ async function fetchRealListings(params) {
     )
     .sort((first, second) => first.distanceKm - second.distanceKm);
 
-  const filteredListings = listings.filter((listing) => matchesFilters(listing, params));
+  const filteredFoodSales = foodSales.filter((foodSale) => matchesFilters(foodSale, params));
   const { items, pagination } = paginate(
-    filteredListings,
+    filteredFoodSales,
     Number(params?.page ?? 1),
     Number(params?.pageSize ?? 6)
   );
 
   return {
-    listings: items,
+    foodSales: items,
     pagination,
-    availableTags: [...new Set(listings.flatMap((listing) => listing.tags))].sort(),
+    availableTags: [...new Set(foodSales.flatMap((foodSale) => foodSale.tags))].sort(),
     userLocation: {
       lat: params?.lat,
       lng: params?.lng,
@@ -353,17 +353,17 @@ export async function fetchNearbyRestaurants(params) {
   return fetchRealRestaurantsWithCounts(params);
 }
 
-export async function fetchNearbyListings(params) {
+export async function fetchNearbyFoodSales(params) {
   if (API_MODE === "mock") {
-    return apiFetch(`/listings/nearby${buildQueryString(params)}`);
+    return apiFetch(`/food-sales/nearby${buildQueryString(params)}`);
   }
 
-  return fetchRealListings(params);
+  return fetchRealFoodSales(params);
 }
 
-export async function reserveListing(listingId) {
+export async function reserveFoodSale(foodSaleId) {
   if (API_MODE === "mock") {
-    return apiFetch(`/listings/${listingId}/reserve`, {
+    return apiFetch(`/food-sales/${foodSaleId}/reserve`, {
       method: "POST",
     });
   }
@@ -371,7 +371,7 @@ export async function reserveListing(listingId) {
   const reservationId = await apiFetch("/reservations", {
     method: "POST",
     body: JSON.stringify({
-      foodSaleId: Number(listingId),
+      foodSaleId: Number(foodSaleId),
     }),
   });
 
@@ -389,8 +389,8 @@ export async function reserveListing(listingId) {
       issuedAt: reservationDetails?.issued_at ?? "",
       expiresAt: reservationDetails?.expires_at ?? "",
     },
-    listing: {
-      id: String(listingId),
+    foodSale: {
+      id: String(foodSaleId),
       isReservedByCurrentUser: true,
       currentUsersReservation: {
         id: reservationId,
@@ -399,3 +399,4 @@ export async function reserveListing(listingId) {
     },
   };
 }
+
