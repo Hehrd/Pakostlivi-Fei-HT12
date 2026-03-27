@@ -4,5 +4,6 @@ env.properties
 .DS_Store
 **/.github/*
 
-
+__pycache__/
+*.pyc
 venv/
