@@ -55,6 +55,7 @@ public class AccountService {
         profileEntity.setProfilePictureUrl(signUpReqDTO.getProfilePictureUrl());
 
         accountEntity.setProfile(profileEntity);
+        profileEntity.setAccount(accountEntity);
         accountEntity.setRole(AccountRole.CLIENT);
 
         AccountEntity savedUser = accountRepository.save(accountEntity);

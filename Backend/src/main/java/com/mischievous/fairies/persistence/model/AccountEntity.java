@@ -22,8 +22,7 @@ public class AccountEntity {
     @NotBlank
     private String email;
 
-    @JoinColumn(name = "profile_id", nullable = false, unique = true)
-    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToOne(mappedBy = "account", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private ProfileEntity profile;
 
     @Column(nullable = false)
