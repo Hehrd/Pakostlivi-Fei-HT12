@@ -160,7 +160,7 @@ export async function createStripePaymentIntent({ reservationId, amount }) {
   const payload = await apiFetch("/payments", {
     method: "POST",
     body: {
-      reservationId: Number(reservationId),
+      foodSaleId: Number(reservationId),
       amount: Number(amount),
     },
   });
