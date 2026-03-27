@@ -1,124 +1,134 @@
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_URL ??
-  "http://localhost:6969";
-const API_MODE = process.env.NEXT_PUBLIC_API_MODE ?? "real";
-const AUTH_USER_STORAGE_KEY = "auth-user";
-
-function getMockAuthHeaders() {
-  if (API_MODE !== "mock" || typeof window === "undefined") {
-    return {};
-  }
-
-  try {
-    const storedUser = window.sessionStorage.getItem(AUTH_USER_STORAGE_KEY);
-
-    if (!storedUser) {
-      return {};
-    }
-
-    const parsedUser = JSON.parse(storedUser);
-    const email = parsedUser?.email?.trim();
-
-    if (!email) {
-      return {};
-    }
-
-    return {
-      "x-mock-user-email": email,
-    };
-  } catch {
-    return {};
-  }
-}
-
-async function parseAuthError(response) {
-  try {
-    const data = await response.json();
-
-    return {
-      status: response.status,
-      error: data.error,
-      message: data.message || "Something went wrong",
-    };
-  } catch {
-    return {
-      status: response.status,
-      error: response.statusText,
-      message: "Something went wrong",
-    };
-  }
-}
+import { API_MODE, apiFetch } from "@/lib/api";
+import { formatEnumLabel, normalizeRole } from "@/lib/backend-normalizers";
 
 async function request(path, options = {}) {
-  let response;
-  const { body, method = "GET", headers = {}, ...restOptions } = options;
+  return apiFetch(path, options);
+}
 
-  try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        ...getMockAuthHeaders(),
-        ...headers,
-      },
-      credentials: "include",
-      body: body === undefined ? undefined : JSON.stringify(body),
-      ...restOptions,
-    });
-  } catch {
-    throw {
-      status: 0,
-      message:
-        "The backend could not be reached. Make sure the Java server is running and CORS allows this frontend.",
-    };
-  }
+function buildDefaultProfilePictureUrl(firstName = "", lastName = "") {
+  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+  const seed = encodeURIComponent(fullName || "MunchMun User");
 
-  if (!response.ok) {
-    throw await parseAuthError(response);
-  }
-
-  const contentType = response.headers.get("content-type") ?? "";
-  const contentLength = response.headers.get("content-length");
-
-  if (
-    response.status === 204 ||
-    contentLength === "0" ||
-    !contentType.includes("application/json")
-  ) {
-    return null;
-  }
-
-  return response.json();
+  return `https://api.dicebear.com/9.x/initials/svg?seed=${seed}`;
 }
 
 export async function login(body) {
   return request("/account/login", {
     method: "POST",
-    body,
+    body: {
+      email: body?.email,
+      password: body?.password,
+    },
   });
 }
 
 export async function signup(body) {
+  const normalizedProfilePictureUrl =
+    body?.profilePictureUrl?.trim() ||
+    buildDefaultProfilePictureUrl(body?.firstName, body?.lastName);
+  const payload =
+    API_MODE === "mock"
+      ? {
+          user: {
+            email: body?.email?.trim(),
+            password: body?.password,
+            role: "CLIENT",
+          },
+          client: {
+            firstName: body?.firstName?.trim(),
+            lastName: body?.lastName?.trim(),
+            profilePictureUrl: normalizedProfilePictureUrl,
+          },
+        }
+      : {
+          email: body?.email?.trim(),
+          password: body?.password,
+          firstName: body?.firstName?.trim(),
+          lastName: body?.lastName?.trim(),
+          profilePictureUrl: normalizedProfilePictureUrl,
+        };
+
   return request("/account/signup", {
     method: "POST",
-    body,
+    body: payload,
   });
 }
 
 export async function getCurrentUser() {
-  return request("/account/me");
+  const currentUser = await request("/account/me");
+
+  if (!currentUser?.id || API_MODE === "mock") {
+    return currentUser;
+  }
+
+  try {
+    const profile = await apiFetch(`/profile/${currentUser.id}`);
+
+    return {
+      ...currentUser,
+      role: normalizeRole(currentUser.role),
+      firstName: profile?.firstName ?? "",
+      lastName: profile?.lastName ?? "",
+      profilePictureUrl: profile?.profilePictureUrl ?? "",
+      allergens: Array.isArray(profile?.allergenTypes)
+        ? profile.allergenTypes.map((item) => formatEnumLabel(item?.type))
+        : [],
+      preferredFoodTags: Array.isArray(profile?.foodTagTypes)
+        ? profile.foodTagTypes.map((item) => formatEnumLabel(item?.type))
+        : [],
+      hasOnboarded: true,
+    };
+  } catch {
+    return {
+      ...currentUser,
+      role: normalizeRole(currentUser.role),
+    };
+  }
 }
 
 export async function getAllergens() {
-  return request("/allergens");
+  if (API_MODE === "mock") {
+    return request("/allergens");
+  }
+
+  const payload = await request("/tags/allergens");
+
+  return {
+    allergens: Array.isArray(payload)
+      ? payload.map((item) => {
+          const label = formatEnumLabel(item?.type);
+
+          return {
+            id: label,
+            label,
+          };
+        })
+      : [],
+  };
 }
 
 export async function getFoodTags() {
-  return request("/food-tags");
+  if (API_MODE === "mock") {
+    return request("/food-tags");
+  }
+
+  const payload = await request("/tags/food");
+
+  return {
+    tags: Array.isArray(payload)
+      ? payload.map((item) => formatEnumLabel(item?.type))
+      : [],
+  };
 }
 
 export async function completeOnboarding(body) {
+  if (API_MODE !== "mock") {
+    throw {
+      status: 501,
+      message: "Onboarding updates are not available from the backend yet.",
+    };
+  }
+
   return request("/account/onboarding", {
     method: "POST",
     body,
@@ -126,6 +136,13 @@ export async function completeOnboarding(body) {
 }
 
 export async function updateUserAllergens(body) {
+  if (API_MODE !== "mock") {
+    throw {
+      status: 501,
+      message: "Allergen updates are not available from the backend yet.",
+    };
+  }
+
   return request("/users/me/allergens", {
     method: "PATCH",
     body,
@@ -133,6 +150,13 @@ export async function updateUserAllergens(body) {
 }
 
 export async function updatePreferredFoodTags(body) {
+  if (API_MODE !== "mock") {
+    throw {
+      status: 501,
+      message: "Preferred food updates are not available from the backend yet.",
+    };
+  }
+
   return request("/users/me/preferences", {
     method: "PATCH",
     body,
@@ -140,6 +164,13 @@ export async function updatePreferredFoodTags(body) {
 }
 
 export async function changePassword(body) {
+  if (API_MODE !== "mock") {
+    throw {
+      status: 501,
+      message: "Password changes are not available from the backend yet.",
+    };
+  }
+
   return request("/account/change-password", {
     method: "POST",
     body,
@@ -196,6 +227,13 @@ export function getAuthToastContent(error, mode) {
     return {
       title: "Server error.",
       description: error.message || "Something went wrong on the backend.",
+    };
+  }
+
+  if (error.status === 501) {
+    return {
+      title: "Feature unavailable.",
+      description: error.message || "This action is not available yet.",
     };
   }
 

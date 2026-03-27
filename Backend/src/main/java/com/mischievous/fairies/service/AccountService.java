@@ -39,7 +39,6 @@ public class AccountService {
         this.passwordEncoder = passwordEncoder;
     }
 
-    @Transactional
     public Map<String, Boolean> signUp(SignUpReqDTO signUpReqDTO) throws EmailAlreadyInUseException {
         if (accountRepository.existsByEmail(signUpReqDTO.getEmail())) {
             throw new EmailAlreadyInUseException("Email is already in use");
@@ -63,7 +62,6 @@ public class AccountService {
         return Map.of("ok", true);
     }
 
-    @Transactional
     public LoginAuth logIn(UserReqLogInDTO dto) throws WrongCredentialsException {
         AccountEntity user = accountRepository.findByEmail(dto.getEmail())
                 .orElseThrow(() -> new WrongCredentialsException("Invalid credentials"));
@@ -93,7 +91,6 @@ public class AccountService {
         return auth;
     }
 
-    @Transactional
     public void logOut(String refreshToken) {
         jwtService.revokeRefreshToken(refreshToken);
     }
