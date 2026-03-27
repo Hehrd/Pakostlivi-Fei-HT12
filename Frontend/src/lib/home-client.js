@@ -8,6 +8,23 @@ import {
 const DEFAULT_RADIUS_KM = 5;
 const DISCOVERY_RESTAURANT_LIMIT = 60;
 
+function normalizeRestaurantsWithDistance(restaurants, params) {
+  return restaurants
+    .map((restaurant) =>
+      normalizeRestaurantRecord(restaurant, {
+        distanceKm: Number(
+          getDistanceInKm(
+            Number(params?.lat ?? 0),
+            Number(params?.lng ?? 0),
+            Number(restaurant?.latitude ?? restaurant?.lat ?? 0),
+            Number(restaurant?.longitude ?? restaurant?.lng ?? 0)
+          ).toFixed(2)
+        ),
+      })
+    )
+    .sort((first, second) => first.distanceKm - second.distanceKm);
+}
+
 function buildQueryString(params) {
   const searchParams = new URLSearchParams();
 
@@ -129,22 +146,31 @@ async function fetchNearbyRestaurantRecords(params) {
     size: params?.pageSize ?? DISCOVERY_RESTAURANT_LIMIT,
   });
 
-  const payload = await apiFetch(`/restaurants/nearby${query}`);
-  const { items, pagination } = normalizePagedPayload(payload, "restaurants");
+  try {
+    const payload = await apiFetch(`/restaurants/nearby${query}`);
+    const { items, pagination } = normalizePagedPayload(payload, "restaurants");
+
+    if (items.length > 0) {
+      return {
+        restaurants: normalizeRestaurantsWithDistance(items, params),
+        pagination,
+      };
+    }
+  } catch {}
+
+  const fallbackPayload = await apiFetch(
+    `/restaurants${buildQueryString({
+      page: 0,
+      size: params?.pageSize ?? DISCOVERY_RESTAURANT_LIMIT,
+    })}`
+  );
+  const { items, pagination } = normalizePagedPayload(
+    fallbackPayload,
+    "restaurants"
+  );
 
   return {
-    restaurants: items.map((restaurant) =>
-      normalizeRestaurantRecord(restaurant, {
-        distanceKm: Number(
-          getDistanceInKm(
-            Number(params?.lat ?? 0),
-            Number(params?.lng ?? 0),
-            Number(restaurant?.latitude ?? 0),
-            Number(restaurant?.longitude ?? 0)
-          ).toFixed(2)
-        ),
-      })
-    ),
+    restaurants: normalizeRestaurantsWithDistance(items, params),
     pagination,
   };
 }

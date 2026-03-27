@@ -312,9 +312,20 @@ function SelectedRestaurantPanel({
           <h2 className="text-xl font-semibold text-foreground">
             {restaurant.name}
           </h2>
-          <p className="text-sm leading-7 text-foreground/66">
-            {restaurant.address}
-          </p>
+          {restaurant.googleMapsUrl ? (
+            <a
+              href={restaurant.googleMapsUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex text-sm font-medium text-primary hover:text-primary-strong"
+            >
+              Google Maps
+            </a>
+          ) : restaurant.address ? (
+            <p className="text-sm leading-7 text-foreground/66">
+              {restaurant.address}
+            </p>
+          ) : null}
         </div>
         <button
           type="button"
