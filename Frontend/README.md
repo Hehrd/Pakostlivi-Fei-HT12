@@ -1,6 +1,6 @@
-# Pakostlivi Fei Hackathon
+# MunchMun Frontend
 
-A lightweight Next.js app put together for the hackathon.
+A Next.js frontend for MunchMun.
 
 ## Run locally
 
