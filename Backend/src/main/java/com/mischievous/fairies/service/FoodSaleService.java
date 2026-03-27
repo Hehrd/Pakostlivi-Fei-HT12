@@ -7,6 +7,7 @@ import com.mischievous.fairies.controller.dtos.response.PagedResponse;
 import com.mischievous.fairies.controller.dtos.response.foodsale.FoodSaleResponseDto;
 import com.mischievous.fairies.persistence.model.FoodEntity;
 import com.mischievous.fairies.persistence.model.FoodSaleEntity;
+import com.mischievous.fairies.persistence.model.RestaurantEntity;
 import com.mischievous.fairies.persistence.repository.FoodRepository;
 import com.mischievous.fairies.persistence.repository.FoodSaleRepository;
 import com.mischievous.fairies.persistence.status.AccountRole;
@@ -31,11 +32,13 @@ public class FoodSaleService {
 
     public FoodSaleResponseDto createFoodSale(CreateFoodSaleRequestDto request, Authentication authentication) {
         AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
-        if (!authenticatedUser.role().equals(AccountRole.RESTAURANT)) {
+        if (!authenticatedUser.role().equals(AccountRole.RESTAURANT) && !authenticatedUser.role().equals(AccountRole.ADMIN)) {
             throw new AccessDeniedException("You are not allowed to access this resource");
         }
+        FoodEntity food = resolveFood(request.getFoodId());
+        assertRestaurantAccess(food.getRestaurant(), authenticatedUser);
         FoodSaleEntity foodSale = new FoodSaleEntity();
-        foodSale.setFood(resolveFood(request.getFoodId()));
+        foodSale.setFood(food);
         foodSale.setQuantity(request.getQuantity());
         foodSale.setPrice(request.getPrice());
         foodSale.setIssuedAt(request.getIssuedAt());
@@ -66,14 +69,18 @@ public class FoodSaleService {
 
     public FoodSaleResponseDto updateFoodSale(UpdateFoodSaleRequestDto request, Authentication authentication) {
         AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
-        if (!authenticatedUser.role().equals(AccountRole.RESTAURANT)) {
+        if (!authenticatedUser.role().equals(AccountRole.RESTAURANT) && !authenticatedUser.role().equals(AccountRole.ADMIN)) {
             throw new AccessDeniedException("You are not allowed to access this resource");
         }
         FoodSaleEntity existingFoodSale = foodSaleRepository.findById(request.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Food sale not found with id: " + request.getId()));
+        FoodEntity food = resolveFood(request.getFoodId());
+        assertRestaurantAccess(existingFoodSale.getFood().getRestaurant(), authenticatedUser);
+        assertRestaurantAccess(food.getRestaurant(), authenticatedUser);
 
-        existingFoodSale.setFood(resolveFood(request.getFoodId()));
+        existingFoodSale.setFood(food);
         existingFoodSale.setPrice(request.getPrice());
+        existingFoodSale.setQuantity(request.getQuantity());
         existingFoodSale.setIssuedAt(request.getIssuedAt());
         existingFoodSale.setExpiresAt(request.getExpiresAt());
 
@@ -82,11 +89,12 @@ public class FoodSaleService {
 
     public void deleteFoodSale(Long id, Authentication authentication) {
         AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
-        if (!authenticatedUser.role().equals(AccountRole.RESTAURANT)) {
+        if (!authenticatedUser.role().equals(AccountRole.RESTAURANT) && !authenticatedUser.role().equals(AccountRole.ADMIN)) {
             throw new AccessDeniedException("You are not allowed to access this resource");
         }
         FoodSaleEntity existingFoodSale = foodSaleRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Food sale not found with id: " + id));
+        assertRestaurantAccess(existingFoodSale.getFood().getRestaurant(), authenticatedUser);
         foodSaleRepository.delete(existingFoodSale);
     }
 
@@ -100,6 +108,7 @@ public class FoodSaleService {
         dto.setId(foodSale.getId());
         dto.setFoodId(foodSale.getFood().getId());
         dto.setPrice(foodSale.getPrice());
+        dto.setQuantity(foodSale.getQuantity());
         dto.setIssuedAt(foodSale.getIssuedAt());
         dto.setExpiresAt(foodSale.getExpiresAt());
         return dto;
@@ -112,5 +121,17 @@ public class FoodSaleService {
             dtos.add(toResponseDto(entity));
         }
         return dtos;
+    }
+
+    private void assertRestaurantAccess(RestaurantEntity restaurant, AuthenticatedUser authenticatedUser) {
+        if (authenticatedUser.role().equals(AccountRole.ADMIN)) {
+            return;
+        }
+
+        if (restaurant.getOwner() != null && restaurant.getOwner().getId().equals(authenticatedUser.userId())) {
+            return;
+        }
+
+        throw new AccessDeniedException("You are not allowed to access this resource");
     }
 }

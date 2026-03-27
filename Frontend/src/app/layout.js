@@ -22,6 +22,11 @@ export const metadata = {
   },
   description:
     "MunchMun helps users discover surplus meals, manage preferences, and coordinate pickups.",
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({ children }) {

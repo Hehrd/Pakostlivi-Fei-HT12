@@ -23,7 +23,7 @@ public class FoodSaleEntity {
     private FoodEntity food;
 
     @Column
-    private double price;
+    private long price;
 
     @Column
     private int quantity;

@@ -9,5 +9,9 @@ public class RestaurantResponseDto {
     private String googleMapsLink;
     private double longitude;
     private double latitude;
+    private Long ownerId;
+    private String ownerEmail;
+    private String ownerFirstName;
+    private String ownerLastName;
 }
 

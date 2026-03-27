@@ -54,7 +54,7 @@ export default function LoginPage() {
         queueRedirectToast({
           type: "success",
           title: "Restaurant login successful.",
-          description: "Opening your restaurant listings and reservations.",
+          description: "Opening your restaurant workspace and listings.",
         });
 
         router.push("/restaurant/listings");

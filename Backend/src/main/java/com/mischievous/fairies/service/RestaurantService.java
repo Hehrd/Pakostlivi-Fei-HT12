@@ -6,8 +6,8 @@ import com.mischievous.fairies.controller.dtos.request.restaurant.UpdateRestaura
 import com.mischievous.fairies.controller.dtos.response.PagedResponse;
 import com.mischievous.fairies.controller.dtos.response.restaurant.RestaurantResponseDto;
 import com.mischievous.fairies.persistence.model.AccountEntity;
+import com.mischievous.fairies.persistence.model.ProfileEntity;
 import com.mischievous.fairies.persistence.model.RestaurantEntity;
-import com.mischievous.fairies.persistence.repository.AccountRepository;
 import com.mischievous.fairies.persistence.repository.RestaurantRepository;
 import com.mischievous.fairies.persistence.status.AccountRole;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,18 +25,12 @@ import java.util.List;
 public class RestaurantService {
     private final AccountService accountService;
     private final RestaurantRepository restaurantRepository;
-    private final AccountRepository accountRepository;
-    private final JwtService jwtService;
 
     @Autowired
     public RestaurantService(RestaurantRepository restaurantRepository,
-                             AccountService accountService,
-                             AccountRepository accountRepository,
-                             JwtService jwtService) {
+                             AccountService accountService) {
         this.restaurantRepository = restaurantRepository;
         this.accountService = accountService;
-        this.accountRepository = accountRepository;
-        this.jwtService = jwtService;
     }
 
     public RestaurantResponseDto createRestaurant(CreateRestaurantRequestDto request, Authentication authentication) {
@@ -78,6 +72,7 @@ public class RestaurantService {
         }
         RestaurantEntity existingRestaurant = restaurantRepository.findById(request.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Restaurant not found with id: " + request.getId()));
+        assertRestaurantAccess(existingRestaurant, authenticatedUser);
 
         existingRestaurant.setName(request.getName());
         existingRestaurant.setGoogleMapsLink(request.getGoogleMapsLink());
@@ -93,6 +88,7 @@ public class RestaurantService {
         }
         RestaurantEntity existingRestaurant = restaurantRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Restaurant not found with id: " + id));
+        assertRestaurantAccess(existingRestaurant, authenticatedUser);
         restaurantRepository.delete(existingRestaurant);
     }
 
@@ -103,6 +99,16 @@ public class RestaurantService {
         dto.setGoogleMapsLink(restaurant.getGoogleMapsLink());
         dto.setLongitude(restaurant.getLongitude());
         dto.setLatitude(restaurant.getLatitude());
+        if (restaurant.getOwner() != null) {
+            dto.setOwnerId(restaurant.getOwner().getId());
+            dto.setOwnerEmail(restaurant.getOwner().getEmail());
+
+            ProfileEntity ownerProfile = restaurant.getOwner().getProfile();
+            if (ownerProfile != null) {
+                dto.setOwnerFirstName(ownerProfile.getFirstname());
+                dto.setOwnerLastName(ownerProfile.getLastname());
+            }
+        }
         return dto;
     }
 
@@ -185,5 +191,17 @@ public class RestaurantService {
         response.setTotal(restaurants.getNumberOfElements());
         response.setTotalPages(restaurants.getTotalPages());
         return response;
+    }
+
+    private void assertRestaurantAccess(RestaurantEntity restaurant, AuthenticatedUser authenticatedUser) {
+        if (authenticatedUser.role().equals(AccountRole.ADMIN)) {
+            return;
+        }
+
+        if (restaurant.getOwner() != null && restaurant.getOwner().getId().equals(authenticatedUser.userId())) {
+            return;
+        }
+
+        throw new AccessDeniedException("You are not allowed to access this resource");
     }
 }

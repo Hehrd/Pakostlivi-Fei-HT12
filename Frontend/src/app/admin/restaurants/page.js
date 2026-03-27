@@ -16,6 +16,11 @@ import { useAuth } from "@/components/AuthProvider";
 
 const EMPTY_FORM = {
   name: "",
+  ownerFirstName: "",
+  ownerLastName: "",
+  ownerEmail: "",
+  ownerPassword: "",
+  ownerConfirmPassword: "",
   locationInput: "",
   resolvedLat: "",
   resolvedLng: "",
@@ -91,8 +96,9 @@ async function geocodeLocationInput(locationInput) {
     );
   }
 
-  const mapsApi = await loadGoogleMaps();
-  const geocoder = new mapsApi.Geocoder();
+  const mapsApi = await loadGoogleMaps(["geocoding"]);
+  const { Geocoder } = await mapsApi.importLibrary("geocoding");
+  const geocoder = new Geocoder();
   const geocodeResponse = await geocoder.geocode({
     address: trimmedInput,
   });
@@ -127,6 +133,11 @@ function AdminCard({ title, description, children }) {
 }
 
 function RestaurantRow({ restaurant, isEditing, onEdit, onDelete }) {
+  const ownerName = [restaurant.ownerFirstName, restaurant.ownerLastName]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
   return (
     <article className="rounded-[1.6rem] border border-border bg-white p-5 shadow-[0_14px_34px_rgba(17,51,34,0.05)]">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -150,6 +161,19 @@ function RestaurantRow({ restaurant, isEditing, onEdit, onDelete }) {
           <p className="text-xs text-foreground/55">
             Coordinates: {restaurant.lat}, {restaurant.lng}
           </p>
+          {ownerName || restaurant.ownerEmail ? (
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-foreground/48">
+                Owner
+              </p>
+              {ownerName ? (
+                <p className="text-sm text-foreground/68">{ownerName}</p>
+              ) : null}
+              {restaurant.ownerEmail ? (
+                <p className="text-sm text-foreground/58">{restaurant.ownerEmail}</p>
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -354,6 +378,35 @@ export default function AdminRestaurantsPage() {
       return;
     }
 
+    if (!isEditing) {
+      if (
+        !formState.ownerFirstName.trim() ||
+        !formState.ownerLastName.trim() ||
+        !formState.ownerEmail.trim() ||
+        !formState.ownerPassword.trim() ||
+        !formState.ownerConfirmPassword.trim()
+      ) {
+        toast.error("Owner account details are required.", {
+          description: "Complete all owner fields before creating the restaurant.",
+        });
+        return;
+      }
+
+      if (formState.ownerPassword !== formState.ownerConfirmPassword) {
+        toast.error("Owner passwords do not match.", {
+          description: "Enter the same password in both owner password fields.",
+        });
+        return;
+      }
+
+      if (formState.ownerPassword.length < 8) {
+        toast.error("Owner password is too short.", {
+          description: "Use at least 8 characters to match the backend rules.",
+        });
+        return;
+      }
+    }
+
     setIsSaving(true);
 
     try {
@@ -367,6 +420,10 @@ export default function AdminRestaurantsPage() {
 
       const payload = {
         name: formState.name.trim(),
+        ownerFirstName: formState.ownerFirstName.trim(),
+        ownerLastName: formState.ownerLastName.trim(),
+        ownerEmail: formState.ownerEmail.trim(),
+        ownerPassword: formState.ownerPassword,
         lat: resolvedLocation?.lat ?? parsedLat,
         lng: resolvedLocation?.lng ?? parsedLng,
         googleMapsUrl:
@@ -500,7 +557,11 @@ export default function AdminRestaurantsPage() {
         <div className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
           <AdminCard
             title={isEditing ? "Edit restaurant" : "Create restaurant"}
-            description="Register restaurants using the name plus a full Google Maps URL. Short maps.app.goo.gl links need to be expanded first."
+            description={
+              isEditing
+                ? "Update restaurant details using the name plus a full Google Maps URL."
+                : "Create a restaurant together with its owner account, then attach the location using a full Google Maps URL."
+            }
           >
             <form className="space-y-4" onSubmit={handleSubmit}>
               <input
@@ -515,6 +576,76 @@ export default function AdminRestaurantsPage() {
                 placeholder="Restaurant name"
                 className="w-full rounded-2xl border border-border bg-surface-muted px-4 py-3 text-sm outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
               />
+              {!isEditing ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <input
+                    type="text"
+                    value={formState.ownerFirstName ?? ""}
+                    onChange={(event) =>
+                      setFormState((current) => ({
+                        ...current,
+                        ownerFirstName: event.target.value,
+                      }))
+                    }
+                    placeholder="Owner first name"
+                    className="w-full rounded-2xl border border-border bg-surface-muted px-4 py-3 text-sm outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
+                  />
+                  <input
+                    type="text"
+                    value={formState.ownerLastName ?? ""}
+                    onChange={(event) =>
+                      setFormState((current) => ({
+                        ...current,
+                        ownerLastName: event.target.value,
+                      }))
+                    }
+                    placeholder="Owner last name"
+                    className="w-full rounded-2xl border border-border bg-surface-muted px-4 py-3 text-sm outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
+                  />
+                </div>
+              ) : null}
+              {!isEditing ? (
+                <input
+                  type="email"
+                  value={formState.ownerEmail ?? ""}
+                  onChange={(event) =>
+                    setFormState((current) => ({
+                      ...current,
+                      ownerEmail: event.target.value,
+                    }))
+                  }
+                  placeholder="Owner email"
+                  className="w-full rounded-2xl border border-border bg-surface-muted px-4 py-3 text-sm outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
+                />
+              ) : null}
+              {!isEditing ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <input
+                    type="password"
+                    value={formState.ownerPassword ?? ""}
+                    onChange={(event) =>
+                      setFormState((current) => ({
+                        ...current,
+                        ownerPassword: event.target.value,
+                      }))
+                    }
+                    placeholder="Owner password"
+                    className="w-full rounded-2xl border border-border bg-surface-muted px-4 py-3 text-sm outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
+                  />
+                  <input
+                    type="password"
+                    value={formState.ownerConfirmPassword ?? ""}
+                    onChange={(event) =>
+                      setFormState((current) => ({
+                        ...current,
+                        ownerConfirmPassword: event.target.value,
+                      }))
+                    }
+                    placeholder="Confirm owner password"
+                    className="w-full rounded-2xl border border-border bg-surface-muted px-4 py-3 text-sm outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
+                  />
+                </div>
+              ) : null}
               <input
                 type="text"
                 value={formState.locationInput ?? ""}

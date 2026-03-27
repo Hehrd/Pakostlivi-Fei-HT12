@@ -7,14 +7,21 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useAuth } from "@/components/AuthProvider";
 import GoogleRestaurantsMap from "@/components/GoogleRestaurantsMap";
-import { API_MODE } from "@/lib/api";
-import { getAllergens, updateUserAllergens } from "@/lib/auth-client";
+import {
+  getAllergens,
+  getFoodTags,
+  updateUserAllergens,
+} from "@/lib/auth-client";
 import { isAdminUser, isRestaurantUser } from "@/lib/auth-user";
 import {
   fetchNearbyListings,
   fetchNearbyRestaurants,
   reserveListing,
 } from "@/lib/home-client";
+import {
+  createReservationRecord,
+  saveStoredReservation,
+} from "@/lib/reservation-client";
 
 const DEFAULT_LOCATION = {
   lat: 42.6977,
@@ -93,7 +100,12 @@ function PaginationBar({
   );
 }
 
-function ReservationNotice({ reservation, onDismiss, onShowRestaurant }) {
+function ReservationNotice({
+  reservation,
+  onDismiss,
+  onShowRestaurant,
+  onViewReservations,
+}) {
   if (!reservation) {
     return null;
   }
@@ -145,6 +157,13 @@ function ReservationNotice({ reservation, onDismiss, onShowRestaurant }) {
           className="rounded-full bg-emerald-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-800"
         >
           Show restaurant
+        </button>
+        <button
+          type="button"
+          onClick={onViewReservations}
+          className="rounded-full border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-emerald-900 transition hover:bg-emerald-100"
+        >
+          View all reservations
         </button>
       </div>
     </div>
@@ -419,12 +438,16 @@ export default function HomePage() {
     [activeTagsKey]
   );
   const savedAllergens = useMemo(() => user?.allergens ?? [], [user]);
-  const isAllergenEditingUnavailable = API_MODE !== "mock";
   const savedAllergensKey = savedAllergens.slice().sort().join("|");
   const requestAllergens = useMemo(
     () => (savedAllergensKey ? savedAllergensKey.split("|") : []),
     [savedAllergensKey]
   );
+  const shouldLoadDiscovery =
+    Boolean(user) &&
+    !isAdminUser(user) &&
+    !isRestaurantUser(user) &&
+    user?.hasOnboarded !== false;
 
   useEffect(() => {
     setSearchText(searchQuery);
@@ -470,19 +493,28 @@ export default function HomePage() {
   }, [isAuthLoading, router, user]);
 
   useEffect(() => {
-    async function loadAllergenOptions() {
+    if (!shouldLoadDiscovery) {
+      return;
+    }
+
+    async function loadFilterOptions() {
       try {
-        const payload = await getAllergens();
-        setAvailableAllergens(payload?.allergens ?? []);
+        const [allergenPayload, foodTagPayload] = await Promise.all([
+          getAllergens(),
+          getFoodTags(),
+        ]);
+
+        setAvailableAllergens(allergenPayload?.allergens ?? []);
+        setAvailableTags(foodTagPayload?.tags ?? []);
       } catch (error) {
-        toast.error("Unable to load allergen options.", {
+        toast.error("Unable to load filters.", {
           description: error.message || "Please try again.",
         });
       }
     }
 
-    loadAllergenOptions();
-  }, []);
+    loadFilterOptions();
+  }, [shouldLoadDiscovery]);
 
   useEffect(() => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
@@ -510,6 +542,10 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
+    if (!shouldLoadDiscovery) {
+      return;
+    }
+
     async function loadRestaurants() {
       setIsRestaurantsLoading(true);
 
@@ -531,9 +567,13 @@ export default function HomePage() {
     }
 
     loadRestaurants();
-  }, [location.lat, location.lng]);
+  }, [location.lat, location.lng, shouldLoadDiscovery]);
 
   useEffect(() => {
+    if (!shouldLoadDiscovery) {
+      return;
+    }
+
     async function loadListings() {
       setIsListingsLoading(true);
 
@@ -549,7 +589,9 @@ export default function HomePage() {
         });
 
         setListings(payload?.listings ?? []);
-        setAvailableTags(payload?.availableTags ?? []);
+        setAvailableTags((current) =>
+          [...new Set([...current, ...(payload?.availableTags ?? [])])].sort()
+        );
         setListingsPagination(
           payload?.pagination ?? {
             page: 1,
@@ -573,9 +615,14 @@ export default function HomePage() {
     requestAllergens,
     requestTags,
     searchQuery,
+    shouldLoadDiscovery,
   ]);
 
   useEffect(() => {
+    if (!shouldLoadDiscovery) {
+      return;
+    }
+
     async function loadSelectedRestaurantListings() {
       if (!selectedRestaurantId) {
         setSelectedRestaurantListings([]);
@@ -625,6 +672,7 @@ export default function HomePage() {
     searchQuery,
     selectedRestaurantId,
     selectedRestaurantListingPage,
+    shouldLoadDiscovery,
   ]);
 
   function updateQueryParams(mutator) {
@@ -759,26 +807,11 @@ export default function HomePage() {
 
     try {
       const payload = await reserveListing(listing.id);
+      const reservationRecord = createReservationRecord(listing, payload);
+
+      saveStoredReservation(user, reservationRecord);
       applyReservedListingUpdate(listing.id, payload?.listing);
-      setLatestReservation({
-        id:
-          payload?.reservation?.id ??
-          payload?.listing?.currentUsersReservation?.id ??
-          listing.id,
-        listingId: listing.id,
-        restaurantId: listing.restaurantId,
-        title: listing.title,
-        restaurantName: listing.restaurantName,
-        pickupWindow: payload?.reservation?.pickupWindow ?? listing.pickupWindow,
-        pickupCode:
-          payload?.reservation?.pickupCode ??
-          payload?.listing?.currentUsersReservation?.pickupCode ??
-          "",
-        expiresAt:
-          payload?.reservation?.expiresAt ??
-          payload?.listing?.currentUsersReservation?.expiresAt ??
-          "",
-      });
+      setLatestReservation(reservationRecord);
 
       toast.success("Listing reserved.", {
         description:
@@ -824,7 +857,42 @@ export default function HomePage() {
     }
   }
 
-  if (isAuthLoading || !user || user.hasOnboarded === false) {
+  if (isAuthLoading) {
+    return null;
+  }
+
+  if (!user) {
+    return (
+      <main className="relative min-h-screen overflow-hidden bg-background px-4 py-8 text-foreground lg:px-5">
+        <div className="absolute inset-0 bg-[linear-gradient(135deg,#f7fbf8_0%,#edf7f0_45%,#f9fcfa_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(31,143,87,0.12),transparent_26%),radial-gradient(circle_at_bottom_left,rgba(22,102,64,0.10),transparent_32%)]" />
+        <section className="relative mx-auto flex min-h-[70vh] max-w-3xl items-center justify-center">
+          <div className="w-full rounded-[2rem] border border-border/70 bg-white/88 p-8 text-center shadow-[0_24px_80px_rgba(17,51,34,0.08)] backdrop-blur-sm sm:p-10">
+            <p className="text-sm font-medium uppercase tracking-[0.24em] text-primary">
+              Login Required
+            </p>
+            <h1 className="mt-4 text-3xl font-semibold tracking-[-0.03em] text-foreground sm:text-4xl">
+              You need to log in to view this page.
+            </h1>
+            <p className="mt-4 text-sm leading-7 text-foreground/68 sm:text-base">
+              Sign in to browse nearby restaurants, reserve meals, and manage
+              your preferences.
+            </p>
+            <div className="mt-6 flex justify-center">
+              <Link
+                href="/login"
+                className="rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:bg-primary-strong"
+              >
+                Go to login
+              </Link>
+            </div>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  if (user.hasOnboarded === false) {
     return null;
   }
 
@@ -978,26 +1046,27 @@ export default function HomePage() {
                         ? `Excluding meals containing: ${savedAllergens.join(", ")}`
                         : "No saved allergens. All meals are currently shown."}
                     </p>
+                    {savedAllergens.length > 0 ? (
+                      <div className="flex flex-wrap gap-2 pt-2">
+                        {savedAllergens.map((allergen) => (
+                          <span
+                            key={allergen}
+                            className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900"
+                          >
+                            {allergen}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
-                      onClick={() => {
-                        if (isAllergenEditingUnavailable) {
-                          return;
-                        }
-
-                        setIsAllergenMenuOpen((value) => !value);
-                      }}
-                      disabled={isAllergenEditingUnavailable}
+                      onClick={() => setIsAllergenMenuOpen((value) => !value)}
                       className="rounded-full border border-border bg-white px-3 py-2 text-xs font-semibold text-foreground/72 hover:border-primary/35 hover:bg-primary-soft/40"
                     >
-                      {isAllergenEditingUnavailable
-                        ? "Read only"
-                        : isAllergenMenuOpen
-                          ? "Close"
-                          : "Quick edit"}
+                      {isAllergenMenuOpen ? "Close" : "Quick edit"}
                     </button>
                     <Link
                       href="/settings"
@@ -1031,11 +1100,7 @@ export default function HomePage() {
                       <button
                         type="button"
                         onClick={handleSaveAllergens}
-                        disabled={
-                          !hasUnsavedAllergens ||
-                          isSavingAllergens ||
-                          isAllergenEditingUnavailable
-                        }
+                        disabled={!hasUnsavedAllergens || isSavingAllergens}
                         className="rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-strong disabled:cursor-not-allowed disabled:opacity-80"
                       >
                         {isSavingAllergens
@@ -1050,13 +1115,6 @@ export default function HomePage() {
                     </div>
                   </div>
                 ) : null}
-                {isAllergenEditingUnavailable ? (
-                  <div className="mt-4 border-t border-border/70 pt-4">
-                    <p className="text-sm text-foreground/62">
-                      Allergen updates are currently read-only with the connected API.
-                    </p>
-                  </div>
-                ) : null}
               </div>
 
               <ReservationNotice
@@ -1067,6 +1125,7 @@ export default function HomePage() {
                     ? handleSelectRestaurant(latestReservation.restaurantId)
                     : undefined
                 }
+                onViewReservations={() => router.push("/reservations")}
               />
             </div>
           </div>

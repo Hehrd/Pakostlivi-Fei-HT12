@@ -47,11 +47,12 @@ public class FoodService {
 
     public FoodResponseDto createFood(CreateFoodRequestDto request, Authentication authentication) {
        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
-       if (!authenticatedUser.role().equals(AccountRole.RESTAURANT)) {
+       if (!authenticatedUser.role().equals(AccountRole.RESTAURANT) && !authenticatedUser.role().equals(AccountRole.ADMIN)) {
            throw new AccessDeniedException("You are not allowed to access this resource");
        }
         RestaurantEntity restaurant = restaurantRepository.findById(request.getRestaurantId())
                 .orElseThrow(() -> new IllegalArgumentException("Restaurant not found with id: " + request.getRestaurantId()));
+        assertRestaurantAccess(restaurant, authenticatedUser);
         FoodEntity food = new FoodEntity();
         food.setRestaurant(restaurant);
         food.setName(request.getName());
@@ -71,7 +72,7 @@ public class FoodService {
         response.setData(dtos);
         response.setPage(foods.getNumber());
         response.setSize(foods.getSize());
-        response.setTotal(foods.getTotalPages());
+        response.setTotal((int) foods.getTotalElements());
         response.setTotalPages(foods.getTotalPages());
         return response;
     }
@@ -84,13 +85,15 @@ public class FoodService {
 
     public FoodResponseDto updateFood(UpdateFoodRequestDto request, Authentication authentication) {
         AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
-        if (!authenticatedUser.role().equals(AccountRole.RESTAURANT)) {
+        if (!authenticatedUser.role().equals(AccountRole.RESTAURANT) && !authenticatedUser.role().equals(AccountRole.ADMIN)) {
             throw new AccessDeniedException("You are not allowed to access this resource");
         }
         FoodEntity existingFood = foodRepository.findById(request.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Food not found with id: " + request.getId()));
+        assertRestaurantAccess(existingFood.getRestaurant(), authenticatedUser);
 
         existingFood.setName(request.getName());
+        existingFood.setDescription(request.getDescription());
         existingFood.setAllergens(resolveAllergens(request.getAllergenIds()));
         existingFood.setFoodTags(resolveFoodTags(request.getFoodTagIds()));
 
@@ -99,21 +102,36 @@ public class FoodService {
 
     public void deleteFood(Long id, Authentication authentication) {
         AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
-        if (!authenticatedUser.role().equals(AccountRole.RESTAURANT)) {
+        if (!authenticatedUser.role().equals(AccountRole.RESTAURANT) && !authenticatedUser.role().equals(AccountRole.ADMIN)) {
             throw new AccessDeniedException("You are not allowed to access this resource");
         }
         FoodEntity existingFood = foodRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Food not found with id: " + id));
+        assertRestaurantAccess(existingFood.getRestaurant(), authenticatedUser);
         foodRepository.delete(existingFood);
     }
 
     private FoodResponseDto toResponseDto(FoodEntity food) {
         FoodResponseDto dto = new FoodResponseDto();
         dto.setId(food.getId());
+        dto.setRestaurantId(food.getRestaurant().getId());
         dto.setName(food.getName());
+        dto.setDescription(food.getDescription());
         dto.setAllergenIds(food.getAllergens().stream().map(AllergenEntity::getId).toList());
         dto.setFoodTagIds(food.getFoodTags().stream().map(FoodTagEntity::getId).toList());
         return dto;
+    }
+
+    private void assertRestaurantAccess(RestaurantEntity restaurant, AuthenticatedUser authenticatedUser) {
+        if (authenticatedUser.role().equals(AccountRole.ADMIN)) {
+            return;
+        }
+
+        if (restaurant.getOwner() != null && restaurant.getOwner().getId().equals(authenticatedUser.userId())) {
+            return;
+        }
+
+        throw new AccessDeniedException("You are not allowed to access this resource");
     }
 
     private List<AllergenEntity> resolveAllergens(List<Long> allergenIds) {

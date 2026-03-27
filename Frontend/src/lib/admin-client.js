@@ -4,6 +4,13 @@ import {
   normalizeRestaurantRecord,
 } from "@/lib/backend-normalizers";
 
+function buildDefaultProfilePictureUrl(firstName = "", lastName = "") {
+  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+  const seed = encodeURIComponent(fullName || "MunchMun User");
+
+  return `https://api.dicebear.com/9.x/initials/svg?seed=${seed}`;
+}
+
 export async function fetchAdminRestaurants() {
   if (API_MODE === "mock") {
     return apiFetch("/admin/restaurants");
@@ -44,10 +51,22 @@ export async function createRestaurant(body) {
   const payload = await apiFetch("/restaurants", {
     method: "POST",
     body: JSON.stringify({
-      name: body?.name,
-      googleMapsLink: body?.googleMapsUrl,
-      longitude: body?.lng,
-      latitude: body?.lat,
+      signUpReqDTO: {
+        email: body?.ownerEmail?.trim(),
+        password: body?.ownerPassword,
+        firstName: body?.ownerFirstName?.trim(),
+        lastName: body?.ownerLastName?.trim(),
+        profilePictureUrl: buildDefaultProfilePictureUrl(
+          body?.ownerFirstName,
+          body?.ownerLastName
+        ),
+      },
+      restaurantCreateData: {
+        name: body?.name,
+        googleMapsLink: body?.googleMapsUrl,
+        longitude: body?.lng,
+        latitude: body?.lat,
+      },
     }),
   });
 
