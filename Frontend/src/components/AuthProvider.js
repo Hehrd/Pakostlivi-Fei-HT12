@@ -1,6 +1,10 @@
 "use client";
 
 import {
+  AUTH_EXPIRED_EVENT,
+  AUTH_USER_STORAGE_KEY,
+} from "@/lib/api";
+import {
   createContext,
   useCallback,
   useContext,
@@ -12,7 +16,6 @@ import { getCurrentUser } from "@/lib/auth-client";
 import { mergeAuthUsers, normalizeAuthUser } from "@/lib/auth-user";
 
 const AuthContext = createContext(null);
-const AUTH_USER_STORAGE_KEY = "auth-user";
 
 function readStoredUser() {
   if (typeof window === "undefined") {
@@ -97,6 +100,16 @@ export function AuthProvider({ children }) {
       clearCurrentUser();
     });
   }, [clearCurrentUser, refreshUser]);
+
+  useEffect(() => {
+    function handleAuthExpired() {
+      clearCurrentUser();
+      setIsAuthLoading(false);
+    }
+
+    window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+  }, [clearCurrentUser]);
 
   const value = useMemo(
     () => ({

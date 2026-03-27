@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useAuth } from "@/components/AuthProvider";
+import { API_MODE } from "@/lib/api";
 import {
   changePassword,
   getAllergens,
@@ -34,15 +35,16 @@ function SettingsCard({ eyebrow, title, description, children }) {
   );
 }
 
-function PreferenceChip({ active, children, onClick }) {
+function PreferenceChip({ active, children, disabled = false, onClick }) {
   return (
     <button
       type="button"
+      disabled={disabled}
       onClick={onClick}
       className={`rounded-full border px-3.5 py-2 text-sm font-semibold transition-colors ${
         active
           ? "border-primary bg-primary text-white"
-          : "border-border bg-surface-muted text-foreground/74 hover:border-primary/40 hover:bg-primary-soft/45"
+          : "border-border bg-surface-muted text-foreground/74 hover:border-primary/40 hover:bg-primary-soft/45 disabled:cursor-not-allowed disabled:opacity-60"
       }`}
     >
       {children}
@@ -63,6 +65,7 @@ export default function SettingsPage() {
   const [isSavingAllergens, setIsSavingAllergens] = useState(false);
   const [isSavingPreferredFoods, setIsSavingPreferredFoods] = useState(false);
   const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const isWriteUnavailable = API_MODE !== "mock";
 
   const savedAllergensKey = useMemo(
     () => (user?.allergens ?? []).slice().sort().join("|"),
@@ -271,6 +274,7 @@ export default function SettingsPage() {
               <input
                 type="password"
                 value={currentPassword}
+                disabled={isWriteUnavailable}
                 onChange={(event) => setCurrentPassword(event.target.value)}
                 placeholder="Current password"
                 className="w-full rounded-2xl border border-border bg-surface-muted px-4 py-3 text-sm outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
@@ -278,6 +282,7 @@ export default function SettingsPage() {
               <input
                 type="password"
                 value={newPassword}
+                disabled={isWriteUnavailable}
                 onChange={(event) => setNewPassword(event.target.value)}
                 placeholder="New password"
                 className="w-full rounded-2xl border border-border bg-surface-muted px-4 py-3 text-sm outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
@@ -285,17 +290,27 @@ export default function SettingsPage() {
               <input
                 type="password"
                 value={confirmPassword}
+                disabled={isWriteUnavailable}
                 onChange={(event) => setConfirmPassword(event.target.value)}
                 placeholder="Confirm new password"
                 className="w-full rounded-2xl border border-border bg-surface-muted px-4 py-3 text-sm outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
               />
               <button
                 type="submit"
-                disabled={isSavingPassword}
+                disabled={isSavingPassword || isWriteUnavailable}
                 className="rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-white transition hover:bg-primary-strong disabled:cursor-not-allowed disabled:opacity-80"
               >
-                {isSavingPassword ? "Updating password..." : "Save new password"}
+                {isWriteUnavailable
+                  ? "Unavailable"
+                  : isSavingPassword
+                    ? "Updating password..."
+                    : "Save new password"}
               </button>
+              {isWriteUnavailable ? (
+                <p className="text-sm text-foreground/62">
+                  Password updates are not available from the connected API yet.
+                </p>
+              ) : null}
             </form>
           </SettingsCard>
 
@@ -308,6 +323,7 @@ export default function SettingsPage() {
               {availableAllergens.map((allergen) => (
                 <PreferenceChip
                   key={allergen.id}
+                  disabled={isWriteUnavailable}
                   active={draftAllergens.includes(allergen.id)}
                   onClick={() => toggleAllergen(allergen.id)}
                 >
@@ -319,13 +335,21 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={handleSaveAllergens}
-                disabled={!hasUnsavedAllergens || isSavingAllergens}
+                disabled={
+                  !hasUnsavedAllergens || isSavingAllergens || isWriteUnavailable
+                }
                 className="rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-white transition hover:bg-primary-strong disabled:cursor-not-allowed disabled:opacity-80"
               >
-                {isSavingAllergens ? "Saving allergens..." : "Save allergens"}
+                {isWriteUnavailable
+                  ? "Unavailable"
+                  : isSavingAllergens
+                    ? "Saving allergens..."
+                    : "Save allergens"}
               </button>
               <p className="text-sm text-foreground/62">
-                {draftAllergens.length > 0
+                {isWriteUnavailable
+                  ? "Allergen preferences are currently read-only with the connected API."
+                  : draftAllergens.length > 0
                   ? `Selected: ${draftAllergens.join(", ")}`
                   : "No allergens selected yet."}
               </p>
@@ -342,6 +366,7 @@ export default function SettingsPage() {
                 {availableFoodTags.map((tag) => (
                   <PreferenceChip
                     key={tag}
+                    disabled={isWriteUnavailable}
                     active={draftPreferredFoodTags.includes(tag)}
                     onClick={() => togglePreferredFoodTag(tag)}
                   >
@@ -353,15 +378,23 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={handleSavePreferredFoods}
-                  disabled={!hasUnsavedPreferredFoods || isSavingPreferredFoods}
+                  disabled={
+                    !hasUnsavedPreferredFoods ||
+                    isSavingPreferredFoods ||
+                    isWriteUnavailable
+                  }
                   className="rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-white transition hover:bg-primary-strong disabled:cursor-not-allowed disabled:opacity-80"
                 >
-                  {isSavingPreferredFoods
-                    ? "Saving preferred foods..."
-                    : "Save preferred foods"}
+                  {isWriteUnavailable
+                    ? "Unavailable"
+                    : isSavingPreferredFoods
+                      ? "Saving preferred foods..."
+                      : "Save preferred foods"}
                 </button>
                 <p className="text-sm text-foreground/62">
-                  {draftPreferredFoodTags.length > 0
+                  {isWriteUnavailable
+                    ? "Preferred food tags are currently read-only with the connected API."
+                    : draftPreferredFoodTags.length > 0
                     ? `Selected: ${draftPreferredFoodTags.join(", ")}`
                     : "No preferred food tags selected yet."}
                 </p>

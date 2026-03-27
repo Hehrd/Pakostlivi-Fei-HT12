@@ -1,3 +1,5 @@
+import { normalizeRole } from "@/lib/backend-normalizers";
+
 const DEFAULT_USER = {
   id: null,
   email: "",
@@ -16,6 +18,7 @@ export function normalizeAuthUser(user = {}) {
   return {
     ...DEFAULT_USER,
     ...user,
+    role: normalizeRole(user?.role),
     allergens: Array.isArray(user?.allergens) ? user.allergens : [],
     preferredFoodTags: Array.isArray(user?.preferredFoodTags)
       ? user.preferredFoodTags
@@ -57,7 +60,7 @@ export function isAdminUser(user) {
 }
 
 export function isRestaurantUser(user) {
-  return user?.role === "RESTORANT";
+  return normalizeRole(user?.role) === "RESTAURANT";
 }
 
 export function isClientUser(user) {

@@ -20,18 +20,23 @@ export default function SignUpPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  function buildProfilePictureUrl() {
-    const seed = encodeURIComponent(`${firstName.trim()} ${lastName.trim()}`);
+  function buildProfilePictureUrl(nextFirstName, nextLastName) {
+    const seed = encodeURIComponent(
+      `${nextFirstName} ${nextLastName}`.trim() || "MunchMun User"
+    );
     return `https://api.dicebear.com/9.x/initials/svg?seed=${seed}`;
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
+    const trimmedFirstName = firstName.trim();
+    const trimmedLastName = lastName.trim();
+    const trimmedEmail = email.trim();
 
     if (
-      !firstName.trim() ||
-      !lastName.trim() ||
-      !email.trim() ||
+      !trimmedFirstName ||
+      !trimmedLastName ||
+      !trimmedEmail ||
       !password.trim() ||
       !confirmPassword.trim()
     ) {
@@ -59,16 +64,14 @@ export default function SignUpPage() {
 
     try {
       await signup({
-        user: {
-          email: email.trim(),
-          password,
-          role: "CLIENT",
-        },
-        client: {
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          profilePictureUrl: buildProfilePictureUrl(),
-        },
+        email: trimmedEmail,
+        password,
+        firstName: trimmedFirstName,
+        lastName: trimmedLastName,
+        profilePictureUrl: buildProfilePictureUrl(
+          trimmedFirstName,
+          trimmedLastName
+        ),
       });
 
       queueRedirectToast({

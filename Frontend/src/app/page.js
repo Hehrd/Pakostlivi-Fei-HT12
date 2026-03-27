@@ -7,11 +7,13 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useAuth } from "@/components/AuthProvider";
 import GoogleRestaurantsMap from "@/components/GoogleRestaurantsMap";
+import { API_MODE } from "@/lib/api";
 import { getAllergens, updateUserAllergens } from "@/lib/auth-client";
 import { isAdminUser, isRestaurantUser } from "@/lib/auth-user";
 import {
   fetchNearbyListings,
   fetchNearbyRestaurants,
+  reserveListing,
 } from "@/lib/home-client";
 
 const DEFAULT_LOCATION = {
@@ -21,6 +23,25 @@ const DEFAULT_LOCATION = {
 
 const RESTAURANTS_FETCH_LIMIT = 24;
 const LISTINGS_PER_PAGE = 6;
+
+function formatReservationExpiry(expiresAt) {
+  if (!expiresAt) {
+    return "";
+  }
+
+  const parsedDate = new Date(expiresAt);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(parsedDate);
+}
 
 function FilterChip({ active, children, onClick }) {
   return (
@@ -72,13 +93,96 @@ function PaginationBar({
   );
 }
 
-function ListingCard({ listing, isSelected, onSelectRestaurant }) {
+function ReservationNotice({ reservation, onDismiss, onShowRestaurant }) {
+  if (!reservation) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-[1.5rem] border border-emerald-200 bg-emerald-50/80 p-4 shadow-[0_12px_35px_rgba(21,128,61,0.08)]">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1.5">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+            Active reservation
+          </p>
+          <h3 className="text-base font-semibold text-foreground">
+            {reservation.title}
+          </h3>
+          <p className="text-sm text-foreground/68">
+            Reserved from {reservation.restaurantName}.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-800 transition hover:bg-emerald-100"
+        >
+          Dismiss
+        </button>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <span className="rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-semibold text-emerald-900">
+          Pickup {reservation.pickupWindow}
+        </span>
+        {reservation.pickupCode ? (
+          <span className="rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-semibold text-emerald-900">
+            Pickup code {reservation.pickupCode}
+          </span>
+        ) : null}
+        {reservation.expiresAt ? (
+          <span className="rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-semibold text-emerald-900">
+            Held until {formatReservationExpiry(reservation.expiresAt)}
+          </span>
+        ) : null}
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={onShowRestaurant}
+          className="rounded-full bg-emerald-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-800"
+        >
+          Show restaurant
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ListingCard({
+  listing,
+  isSelected,
+  isReserving,
+  onReserve,
+  onSelectRestaurant,
+}) {
+  function handleReserve() {
+    if (listing.isReservedByCurrentUser || isReserving) {
+      return;
+    }
+
+    onReserve(listing);
+  }
+
   return (
     <article
+      role="button"
+      tabIndex={0}
+      onClick={handleReserve}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          handleReserve();
+        }
+      }}
       className={`rounded-[1.5rem] border p-4 transition-colors ${
         isSelected
           ? "border-primary bg-primary-soft/45"
-          : "border-border bg-white hover:border-primary/35"
+          : listing.isReservedByCurrentUser
+            ? "border-emerald-300 bg-emerald-50/70"
+            : "border-border bg-white hover:border-primary/35"
       }`}
     >
       <div className="flex items-start justify-between gap-4">
@@ -88,7 +192,10 @@ function ListingCard({ listing, isSelected, onSelectRestaurant }) {
           </h3>
           <button
             type="button"
-            onClick={() => onSelectRestaurant(listing.restaurantId)}
+            onClick={(event) => {
+              event.stopPropagation();
+              onSelectRestaurant(listing.restaurantId);
+            }}
             className="text-sm font-medium text-primary hover:text-primary-strong"
           >
             {listing.restaurantName}
@@ -129,6 +236,47 @@ function ListingCard({ listing, isSelected, onSelectRestaurant }) {
           ))}
         </div>
       ) : null}
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-4">
+        <div className="flex flex-wrap gap-2">
+          {listing.isReservedByCurrentUser ? (
+            <>
+              <span className="rounded-full border border-emerald-300 bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
+                Reserved
+              </span>
+              {listing.currentUsersReservation?.pickupCode ? (
+                <span className="rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-semibold text-emerald-900">
+                  Pickup code {listing.currentUsersReservation.pickupCode}
+                </span>
+              ) : null}
+            </>
+          ) : (
+            <span className="text-xs text-foreground/58">
+              Tap the card or use reserve to hold this meal.
+            </span>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            handleReserve();
+          }}
+          disabled={listing.isReservedByCurrentUser || isReserving}
+          className={`rounded-full px-4 py-2 text-xs font-semibold transition-colors ${
+            listing.isReservedByCurrentUser
+              ? "cursor-default border border-emerald-300 bg-emerald-100 text-emerald-800"
+              : "bg-primary text-white hover:bg-primary-strong disabled:cursor-not-allowed disabled:opacity-80"
+          }`}
+        >
+          {listing.isReservedByCurrentUser
+            ? "Reserved"
+            : isReserving
+              ? "Reserving..."
+              : "Reserve"}
+        </button>
+      </div>
     </article>
   );
 }
@@ -137,7 +285,10 @@ function SelectedRestaurantPanel({
   restaurant,
   listings,
   pagination,
+  isLoading,
+  reservingListingId,
   onClear,
+  onReserve,
   onSelectRestaurant,
   onPreviousPage,
   onNextPage,
@@ -175,12 +326,18 @@ function SelectedRestaurantPanel({
       </div>
 
       <div className="mt-5 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
-        {listings.length > 0 ? (
+        {isLoading ? (
+          <div className="rounded-2xl bg-surface-muted px-4 py-4 text-sm leading-7 text-foreground/68">
+            Loading listings from this restaurant...
+          </div>
+        ) : listings.length > 0 ? (
           listings.map((listing) => (
             <ListingCard
               key={listing.id}
               listing={listing}
               isSelected
+              isReserving={reservingListingId === listing.id}
+              onReserve={onReserve}
               onSelectRestaurant={onSelectRestaurant}
             />
           ))
@@ -215,15 +372,24 @@ export default function HomePage() {
   const [locationState, setLocationState] = useState("locating");
   const [restaurants, setRestaurants] = useState([]);
   const [listings, setListings] = useState([]);
+  const [selectedRestaurantListings, setSelectedRestaurantListings] = useState([]);
   const [availableTags, setAvailableTags] = useState([]);
   const [availableAllergens, setAvailableAllergens] = useState([]);
   const [searchText, setSearchText] = useState(searchParams.get("search") ?? "");
   const [draftAllergens, setDraftAllergens] = useState(user?.allergens ?? []);
   const [isRestaurantsLoading, setIsRestaurantsLoading] = useState(true);
   const [isListingsLoading, setIsListingsLoading] = useState(true);
+  const [isSelectedRestaurantListingsLoading, setIsSelectedRestaurantListingsLoading] =
+    useState(false);
+  const [reservingListingId, setReservingListingId] = useState(null);
+  const [latestReservation, setLatestReservation] = useState(null);
   const [isAllergenMenuOpen, setIsAllergenMenuOpen] = useState(false);
   const [isSavingAllergens, setIsSavingAllergens] = useState(false);
   const [listingsPagination, setListingsPagination] = useState({
+    page: 1,
+    totalPages: 1,
+  });
+  const [selectedRestaurantPagination, setSelectedRestaurantPagination] = useState({
     page: 1,
     totalPages: 1,
   });
@@ -231,6 +397,10 @@ export default function HomePage() {
   const searchQuery = searchParams.get("search") ?? "";
   const selectedRestaurantId = searchParams.get("restaurant") ?? "";
   const listingPage = Math.max(1, Number(searchParams.get("listingPage")) || 1);
+  const selectedRestaurantListingPage = Math.max(
+    1,
+    Number(searchParams.get("restaurantListingPage")) || 1
+  );
   const activeTags = useMemo(() => searchParams.getAll("tag"), [searchParams]);
   const activeTagsKey = activeTags.join("|");
   const requestTags = useMemo(
@@ -238,6 +408,7 @@ export default function HomePage() {
     [activeTagsKey]
   );
   const savedAllergens = useMemo(() => user?.allergens ?? [], [user]);
+  const isAllergenEditingUnavailable = API_MODE !== "mock";
   const savedAllergensKey = savedAllergens.slice().sort().join("|");
   const requestAllergens = useMemo(
     () => (savedAllergensKey ? savedAllergensKey.split("|") : []),
@@ -360,7 +531,6 @@ export default function HomePage() {
           lat: location.lat,
           lng: location.lng,
           search: searchQuery,
-          restaurant: selectedRestaurantId,
           tag: requestTags,
           excludeAllergen: requestAllergens,
           page: listingPage,
@@ -392,7 +562,58 @@ export default function HomePage() {
     requestAllergens,
     requestTags,
     searchQuery,
+  ]);
+
+  useEffect(() => {
+    async function loadSelectedRestaurantListings() {
+      if (!selectedRestaurantId) {
+        setSelectedRestaurantListings([]);
+        setSelectedRestaurantPagination({
+          page: 1,
+          totalPages: 1,
+        });
+        return;
+      }
+
+      setIsSelectedRestaurantListingsLoading(true);
+
+      try {
+        const payload = await fetchNearbyListings({
+          lat: location.lat,
+          lng: location.lng,
+          search: searchQuery,
+          restaurant: selectedRestaurantId,
+          tag: requestTags,
+          excludeAllergen: requestAllergens,
+          page: selectedRestaurantListingPage,
+          pageSize: LISTINGS_PER_PAGE,
+        });
+
+        setSelectedRestaurantListings(payload?.listings ?? []);
+        setSelectedRestaurantPagination(
+          payload?.pagination ?? {
+            page: 1,
+            totalPages: 1,
+          }
+        );
+      } catch (error) {
+        toast.error("Unable to load listings for this restaurant.", {
+          description: error.message || "Please try again.",
+        });
+      } finally {
+        setIsSelectedRestaurantListingsLoading(false);
+      }
+    }
+
+    loadSelectedRestaurantListings();
+  }, [
+    location.lat,
+    location.lng,
+    requestAllergens,
+    requestTags,
+    searchQuery,
     selectedRestaurantId,
+    selectedRestaurantListingPage,
   ]);
 
   function updateQueryParams(mutator) {
@@ -421,6 +642,7 @@ export default function HomePage() {
       }
 
       nextParams.delete("listingPage");
+      nextParams.delete("restaurantListingPage");
     });
   }
 
@@ -430,6 +652,7 @@ export default function HomePage() {
     updateQueryParams((nextParams) => {
       nextParams.delete("search");
       nextParams.delete("listingPage");
+      nextParams.delete("restaurantListingPage");
 
       const trimmedSearch = searchText.trim();
 
@@ -441,7 +664,7 @@ export default function HomePage() {
 
   function handleSelectRestaurant(restaurantId) {
     updateQueryParams((nextParams) => {
-      nextParams.delete("listingPage");
+      nextParams.delete("restaurantListingPage");
 
       if (nextParams.get("restaurant") === restaurantId) {
         nextParams.delete("restaurant");
@@ -455,7 +678,7 @@ export default function HomePage() {
   function clearSelectedRestaurant() {
     updateQueryParams((nextParams) => {
       nextParams.delete("restaurant");
-      nextParams.delete("listingPage");
+      nextParams.delete("restaurantListingPage");
     });
   }
 
@@ -464,6 +687,7 @@ export default function HomePage() {
       nextParams.delete("search");
       nextParams.delete("tag");
       nextParams.delete("listingPage");
+      nextParams.delete("restaurantListingPage");
       setSearchText("");
     });
   }
@@ -474,12 +698,95 @@ export default function HomePage() {
     });
   }
 
+  function setSelectedRestaurantListingsPage(page) {
+    updateQueryParams((nextParams) => {
+      nextParams.set("restaurantListingPage", String(page));
+    });
+  }
+
   function toggleDraftAllergen(allergenId) {
     setDraftAllergens((current) =>
       current.includes(allergenId)
         ? current.filter((item) => item !== allergenId)
         : [...current, allergenId]
     );
+  }
+
+  function applyReservedListingUpdate(listingId, listingUpdate) {
+    if (!listingUpdate) {
+      return;
+    }
+
+    function mergeListing(currentListing) {
+      if (currentListing.id !== listingId) {
+        return currentListing;
+      }
+
+      const nextReservationCount =
+        listingUpdate.reservationCount ?? (currentListing.reservationCount ?? 0) + 1;
+      const nextReservedQuantity =
+        listingUpdate.reservedQuantity ?? (currentListing.reservedQuantity ?? 0) + 1;
+
+      return {
+        ...currentListing,
+        ...listingUpdate,
+        reservationCount: nextReservationCount,
+        reservedQuantity: nextReservedQuantity,
+      };
+    }
+
+    setListings((current) => current.map(mergeListing));
+    setSelectedRestaurantListings((current) => current.map(mergeListing));
+  }
+
+  async function handleReserveListing(listing) {
+    if (!listing?.id || reservingListingId === listing.id || listing.isReservedByCurrentUser) {
+      return;
+    }
+
+    setReservingListingId(listing.id);
+
+    try {
+      const payload = await reserveListing(listing.id);
+      applyReservedListingUpdate(listing.id, payload?.listing);
+      setLatestReservation({
+        id:
+          payload?.reservation?.id ??
+          payload?.listing?.currentUsersReservation?.id ??
+          listing.id,
+        listingId: listing.id,
+        restaurantId: listing.restaurantId,
+        title: listing.title,
+        restaurantName: listing.restaurantName,
+        pickupWindow: payload?.reservation?.pickupWindow ?? listing.pickupWindow,
+        pickupCode:
+          payload?.reservation?.pickupCode ??
+          payload?.listing?.currentUsersReservation?.pickupCode ??
+          "",
+        expiresAt:
+          payload?.reservation?.expiresAt ??
+          payload?.listing?.currentUsersReservation?.expiresAt ??
+          "",
+      });
+
+      toast.success("Listing reserved.", {
+        description:
+          payload?.reservation?.pickupCode
+            ? `Pickup code ${payload.reservation.pickupCode}. Pickup window ${payload.reservation.pickupWindow}.`
+            : payload?.reservation?.expiresAt
+              ? `Reservation created. It currently expires at ${new Date(payload.reservation.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`
+              : `Pickup window ${payload?.reservation?.pickupWindow ?? listing.pickupWindow}.`,
+      });
+    } catch (error) {
+      toast.error(
+        error.status === 409 ? "Already reserved." : "Unable to reserve listing.",
+        {
+          description: error.message || "Please try again.",
+        }
+      );
+    } finally {
+      setReservingListingId(null);
+    }
   }
 
   async function handleSaveAllergens() {
@@ -494,6 +801,9 @@ export default function HomePage() {
       setIsAllergenMenuOpen(false);
       toast.success("Saved allergen preferences.");
       setListingsPage(1);
+      if (selectedRestaurantId) {
+        setSelectedRestaurantListingsPage(1);
+      }
     } catch (error) {
       toast.error("Unable to update allergens.", {
         description: error.message || "Please try again.",
@@ -662,10 +972,21 @@ export default function HomePage() {
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
-                      onClick={() => setIsAllergenMenuOpen((value) => !value)}
+                      onClick={() => {
+                        if (isAllergenEditingUnavailable) {
+                          return;
+                        }
+
+                        setIsAllergenMenuOpen((value) => !value);
+                      }}
+                      disabled={isAllergenEditingUnavailable}
                       className="rounded-full border border-border bg-white px-3 py-2 text-xs font-semibold text-foreground/72 hover:border-primary/35 hover:bg-primary-soft/40"
                     >
-                      {isAllergenMenuOpen ? "Close" : "Quick edit"}
+                      {isAllergenEditingUnavailable
+                        ? "Read only"
+                        : isAllergenMenuOpen
+                          ? "Close"
+                          : "Quick edit"}
                     </button>
                     <Link
                       href="/settings"
@@ -699,7 +1020,11 @@ export default function HomePage() {
                       <button
                         type="button"
                         onClick={handleSaveAllergens}
-                        disabled={!hasUnsavedAllergens || isSavingAllergens}
+                        disabled={
+                          !hasUnsavedAllergens ||
+                          isSavingAllergens ||
+                          isAllergenEditingUnavailable
+                        }
                         className="rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-strong disabled:cursor-not-allowed disabled:opacity-80"
                       >
                         {isSavingAllergens
@@ -714,7 +1039,24 @@ export default function HomePage() {
                     </div>
                   </div>
                 ) : null}
+                {isAllergenEditingUnavailable ? (
+                  <div className="mt-4 border-t border-border/70 pt-4">
+                    <p className="text-sm text-foreground/62">
+                      Allergen updates are currently read-only with the connected API.
+                    </p>
+                  </div>
+                ) : null}
               </div>
+
+              <ReservationNotice
+                reservation={latestReservation}
+                onDismiss={() => setLatestReservation(null)}
+                onShowRestaurant={() =>
+                  latestReservation?.restaurantId
+                    ? handleSelectRestaurant(latestReservation.restaurantId)
+                    : undefined
+                }
+              />
             </div>
           </div>
 
@@ -723,16 +1065,24 @@ export default function HomePage() {
               <div className="xl:hidden">
                 <SelectedRestaurantPanel
                   restaurant={selectedRestaurant}
-                  listings={listings}
-                  pagination={listingsPagination}
+                  listings={selectedRestaurantListings}
+                  pagination={selectedRestaurantPagination}
+                  isLoading={isSelectedRestaurantListingsLoading}
+                  reservingListingId={reservingListingId}
                   onClear={clearSelectedRestaurant}
+                  onReserve={handleReserveListing}
                   onSelectRestaurant={handleSelectRestaurant}
                   onPreviousPage={() =>
-                    setListingsPage(Math.max(1, listingPage - 1))
+                    setSelectedRestaurantListingsPage(
+                      Math.max(1, selectedRestaurantListingPage - 1)
+                    )
                   }
                   onNextPage={() =>
-                    setListingsPage(
-                      Math.min(listingsPagination.totalPages, listingPage + 1)
+                    setSelectedRestaurantListingsPage(
+                      Math.min(
+                        selectedRestaurantPagination.totalPages,
+                        selectedRestaurantListingPage + 1
+                      )
                     )
                   }
                 />
@@ -749,6 +1099,8 @@ export default function HomePage() {
                   key={listing.id}
                   listing={listing}
                   isSelected={listing.restaurantId === selectedRestaurantId}
+                  isReserving={reservingListingId === listing.id}
+                  onReserve={handleReserveListing}
                   onSelectRestaurant={handleSelectRestaurant}
                 />
               ))
@@ -763,7 +1115,7 @@ export default function HomePage() {
             <PaginationBar
               page={listingsPagination.page}
               totalPages={listingsPagination.totalPages}
-              itemLabel={selectedRestaurant ? "Restaurant listings" : "Listings"}
+              itemLabel="Listings"
               onPrevious={() => setListingsPage(Math.max(1, listingPage - 1))}
               onNext={() =>
                 setListingsPage(
@@ -777,14 +1129,24 @@ export default function HomePage() {
         <div className="hidden xl:block xl:h-full xl:min-h-0">
           <SelectedRestaurantPanel
             restaurant={selectedRestaurant}
-            listings={listings}
-            pagination={listingsPagination}
+            listings={selectedRestaurantListings}
+            pagination={selectedRestaurantPagination}
+            isLoading={isSelectedRestaurantListingsLoading}
+            reservingListingId={reservingListingId}
             onClear={clearSelectedRestaurant}
+            onReserve={handleReserveListing}
             onSelectRestaurant={handleSelectRestaurant}
-            onPreviousPage={() => setListingsPage(Math.max(1, listingPage - 1))}
+            onPreviousPage={() =>
+              setSelectedRestaurantListingsPage(
+                Math.max(1, selectedRestaurantListingPage - 1)
+              )
+            }
             onNextPage={() =>
-              setListingsPage(
-                Math.min(listingsPagination.totalPages, listingPage + 1)
+              setSelectedRestaurantListingsPage(
+                Math.min(
+                  selectedRestaurantPagination.totalPages,
+                  selectedRestaurantListingPage + 1
+                )
               )
             }
           />

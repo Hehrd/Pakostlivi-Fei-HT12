@@ -339,6 +339,10 @@ function buildGoogleMapsUrl({ lat, lng }) {
   return `https://www.google.com/maps?q=${lat},${lng}`;
 }
 
+function getUserFullName(user) {
+  return [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim();
+}
+
 function getRestaurantListingCount(restaurantId) {
   return LISTINGS.filter((listing) => listing.restaurantId === restaurantId).length;
 }
@@ -370,6 +374,21 @@ function getNextRestaurantId() {
   return `r${maxId + 1}`;
 }
 
+function getNextReservationId() {
+  const maxId = RESERVATIONS.reduce((currentMax, reservation) => {
+    const numericId = Number(String(reservation.id).replace(/\D/g, "")) || 0;
+    return Math.max(currentMax, numericId);
+  }, 0);
+
+  return `res${maxId + 1}`;
+}
+
+function buildPickupCode(listingId, reservationId) {
+  return `PK-${String(listingId).toUpperCase()}-${String(reservationId)
+    .replace(/^res/i, "")
+    .padStart(3, "0")}`;
+}
+
 function paginate(items, page, pageSize) {
   const totalItems = items.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -399,11 +418,21 @@ function enrichRestaurants(location) {
   })).sort((first, second) => first.distanceKm - second.distanceKm);
 }
 
-function enrichListings(location) {
+function enrichListings(location, viewer = null) {
   return LISTINGS.map((listing) => {
     const restaurant = RESTAURANTS.find(
       (item) => item.id === listing.restaurantId
     );
+    const listingReservations = RESERVATIONS.filter(
+      (reservation) => reservation.listingId === listing.id
+    );
+    const currentUsersReservation =
+      viewer?.email && viewer.role === "CLIENT"
+        ? listingReservations.find(
+            (reservation) =>
+              reservation.customerEmail.toLowerCase() === viewer.email.toLowerCase()
+          ) ?? null
+        : null;
 
     return {
       ...listing,
@@ -426,6 +455,19 @@ function enrichListings(location) {
           restaurant?.lng ?? DEFAULT_LOCATION.lng
         ).toFixed(2)
       ),
+      reservationCount: listingReservations.length,
+      reservedQuantity: listingReservations.reduce(
+        (sum, reservation) => sum + reservation.quantity,
+        0
+      ),
+      isReservedByCurrentUser: Boolean(currentUsersReservation),
+      currentUsersReservation: currentUsersReservation
+        ? {
+            id: currentUsersReservation.id,
+            status: currentUsersReservation.status,
+            pickupCode: currentUsersReservation.pickupCode ?? "",
+          }
+        : null,
     };
   }).sort((first, second) => first.distanceKm - second.distanceKm);
 }
@@ -588,7 +630,23 @@ function requireRestaurant(path, request) {
     return unauthorizedResponse;
   }
 
-  if (currentUser.role !== "RESTORANT") {
+  if (currentUser.role !== "RESTAURANT") {
+    return HttpResponse.json(buildForbiddenError(path), {
+      status: 403,
+    });
+  }
+
+  return null;
+}
+
+function requireClient(path, request) {
+  const unauthorizedResponse = requireAuthenticatedUser(path, request);
+
+  if (unauthorizedResponse) {
+    return unauthorizedResponse;
+  }
+
+  if (currentUser.role !== "CLIENT") {
     return HttpResponse.json(buildForbiddenError(path), {
       status: 403,
     });
@@ -633,7 +691,7 @@ const registeredUsers = new Map([
       email: "restaurant@munchmun.com",
       firstName: "Restaurant",
       lastName: "Owner",
-      role: "RESTORANT",
+      role: "RESTAURANT",
       restaurantId: "r1",
       preferredFoodTags: [],
     }),
@@ -1019,6 +1077,97 @@ export const handlers = [
     });
   }),
 
+  http.post("*/listings/:listingId/reserve", async ({ request, params }) => {
+    const guardResponse = requireClient(
+      `/listings/${params.listingId}/reserve`,
+      request
+    );
+
+    if (guardResponse) {
+      return guardResponse;
+    }
+
+    const listing = LISTINGS.find((item) => item.id === params.listingId);
+
+    if (!listing) {
+      return HttpResponse.json(
+        buildAuthError(
+          404,
+          "Not Found",
+          "Listing not found",
+          `/listings/${params.listingId}/reserve`
+        ),
+        {
+          status: 404,
+        }
+      );
+    }
+
+    const existingReservation = RESERVATIONS.find(
+      (reservation) =>
+        reservation.listingId === listing.id &&
+        reservation.customerEmail.toLowerCase() === currentUser.email.toLowerCase()
+    );
+
+    if (existingReservation) {
+      return HttpResponse.json(
+        buildAuthError(
+          409,
+          "Conflict",
+          "You already reserved this listing",
+          `/listings/${params.listingId}/reserve`
+        ),
+        {
+          status: 409,
+        }
+      );
+    }
+
+    const reservationId = getNextReservationId();
+    const reservation = {
+      id: reservationId,
+      listingId: listing.id,
+      customerName: getUserFullName(currentUser) || currentUser.email,
+      customerEmail: currentUser.email,
+      quantity: 1,
+      status: "CONFIRMED",
+      reservedAt: new Date().toISOString(),
+      pickupCode: buildPickupCode(listing.id, reservationId),
+    };
+
+    RESERVATIONS.push(reservation);
+
+    return HttpResponse.json(
+      {
+        message: "Listing reserved.",
+        reservation: {
+          ...reservation,
+          listingTitle: listing.title,
+          pickupWindow: listing.pickupWindow,
+          totalPrice: Number((listing.price * reservation.quantity).toFixed(2)),
+        },
+        listing: {
+          id: listing.id,
+          reservationCount: RESERVATIONS.filter(
+            (item) => item.listingId === listing.id
+          ).length,
+          reservedQuantity: RESERVATIONS.filter(
+            (item) => item.listingId === listing.id
+          ).reduce((sum, item) => sum + item.quantity, 0),
+          isReservedByCurrentUser: true,
+          currentUsersReservation: {
+            id: reservation.id,
+            status: reservation.status,
+            pickupCode: reservation.pickupCode,
+          },
+        },
+      },
+      {
+        status: 201,
+      }
+    );
+  }),
+
   http.get("*/admin/restaurants", async ({ request }) => {
     const guardResponse = requireAdmin("/admin/restaurants", request);
 
@@ -1238,7 +1387,8 @@ export const handlers = [
   http.get("*/listings/nearby", async ({ request }) => {
     const url = new URL(request.url);
     const location = parseLocation(url.searchParams);
-    const filteredListings = enrichListings(location).filter((listing) =>
+    const viewer = hydrateCurrentUserFromRequest(request);
+    const filteredListings = enrichListings(location, viewer).filter((listing) =>
       matchesFilters(listing, url.searchParams)
     );
     const page = Number(url.searchParams.get("page")) || 1;

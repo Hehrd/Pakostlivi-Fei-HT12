@@ -155,6 +155,7 @@ export default function RestaurantListingsPage() {
   const [reservations, setReservations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isReservationsLoading, setIsReservationsLoading] = useState(false);
+  const [unsupportedMessage, setUnsupportedMessage] = useState("");
 
   const selectedListing = useMemo(
     () => listings.find((listing) => listing.id === selectedListingId) ?? null,
@@ -189,6 +190,7 @@ export default function RestaurantListingsPage() {
         const payload = await fetchMyRestaurantListings();
         const nextListings = payload?.listings ?? [];
 
+        setUnsupportedMessage("");
         setRestaurant(payload?.restaurant ?? null);
         setListings(nextListings);
         setTotals(
@@ -206,9 +208,13 @@ export default function RestaurantListingsPage() {
           return nextListings[0]?.id ?? null;
         });
       } catch (error) {
-        toast.error("Unable to load restaurant listings.", {
-          description: error.message || "Please try again.",
-        });
+        if (error.status === 501) {
+          setUnsupportedMessage(error.message || "Restaurant listings are not available.");
+        } else {
+          toast.error("Unable to load restaurant listings.", {
+            description: error.message || "Please try again.",
+          });
+        }
       } finally {
         setIsLoading(false);
       }
@@ -230,11 +236,16 @@ export default function RestaurantListingsPage() {
 
       try {
         const payload = await fetchListingReservations(selectedListingId);
+        setUnsupportedMessage("");
         setReservations(payload?.reservations ?? []);
       } catch (error) {
-        toast.error("Unable to load reservations.", {
-          description: error.message || "Please try again.",
-        });
+        if (error.status === 501) {
+          setUnsupportedMessage(error.message || "Restaurant reservations are not available.");
+        } else {
+          toast.error("Unable to load reservations.", {
+            description: error.message || "Please try again.",
+          });
+        }
       } finally {
         setIsReservationsLoading(false);
       }
@@ -317,77 +328,92 @@ export default function RestaurantListingsPage() {
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[0.94fr_1.06fr]">
-          <section className="rounded-[1.9rem] border border-border/75 bg-white/92 p-6 shadow-[0_22px_55px_rgba(17,51,34,0.07)] backdrop-blur-sm">
-            <div className="mb-5 space-y-2">
-              <h2 className="text-2xl font-semibold tracking-[-0.03em] text-foreground">
-                Your listings
-              </h2>
-              <p className="text-sm leading-7 text-foreground/66">
-                Select any listing to inspect the reservations that belong to it.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              {isLoading ? (
-                <div className="rounded-[1.6rem] border border-border bg-surface-muted px-5 py-6 text-sm text-foreground/64">
-                  Loading your listings...
+          {unsupportedMessage ? (
+            <section className="xl:col-span-2 rounded-[1.9rem] border border-border/75 bg-white/92 p-6 shadow-[0_22px_55px_rgba(17,51,34,0.07)] backdrop-blur-sm">
+              <div className="space-y-3">
+                <h2 className="text-2xl font-semibold tracking-[-0.03em] text-foreground">
+                  Restaurant tools
+                </h2>
+                <p className="max-w-3xl text-sm leading-7 text-foreground/66">
+                  {unsupportedMessage}
+                </p>
+              </div>
+            </section>
+          ) : (
+            <>
+              <section className="rounded-[1.9rem] border border-border/75 bg-white/92 p-6 shadow-[0_22px_55px_rgba(17,51,34,0.07)] backdrop-blur-sm">
+                <div className="mb-5 space-y-2">
+                  <h2 className="text-2xl font-semibold tracking-[-0.03em] text-foreground">
+                    Your listings
+                  </h2>
+                  <p className="text-sm leading-7 text-foreground/66">
+                    Select any listing to inspect the reservations that belong to it.
+                  </p>
                 </div>
-              ) : listings.length > 0 ? (
-                listings.map((listing) => (
-                  <ListingCard
-                    key={listing.id}
-                    listing={listing}
-                    isSelected={listing.id === selectedListingId}
-                    onSelect={setSelectedListingId}
-                  />
-                ))
-              ) : (
-                <div className="rounded-[1.6rem] border border-dashed border-border bg-surface-muted px-5 py-6 text-sm text-foreground/64">
-                  No listings are assigned to this restaurant yet.
-                </div>
-              )}
-            </div>
-          </section>
 
-          <section className="rounded-[1.9rem] border border-border/75 bg-white/92 p-6 shadow-[0_22px_55px_rgba(17,51,34,0.07)] backdrop-blur-sm">
-            <div className="mb-5 space-y-2">
-              <h2 className="text-2xl font-semibold tracking-[-0.03em] text-foreground">
-                {selectedListing
-                  ? `Reservations for ${selectedListing.title}`
-                  : "Reservations"}
-              </h2>
-              <p className="text-sm leading-7 text-foreground/66">
-                {selectedListing
-                  ? `Pickup window ${selectedListing.pickupWindow}`
-                  : "Choose a listing on the left to inspect its reservation queue."}
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              {selectedListing ? (
-                isReservationsLoading ? (
-                  <div className="rounded-[1.6rem] border border-border bg-surface-muted px-5 py-6 text-sm text-foreground/64">
-                    Loading reservations...
-                  </div>
-                ) : reservations.length > 0 ? (
-                  reservations.map((reservation) => (
-                    <ReservationRow
-                      key={reservation.id}
-                      reservation={reservation}
-                    />
-                  ))
-                ) : (
-                  <div className="rounded-[1.6rem] border border-dashed border-border bg-surface-muted px-5 py-6 text-sm text-foreground/64">
-                    No reservations for this listing yet.
-                  </div>
-                )
-              ) : (
-                <div className="rounded-[1.6rem] border border-dashed border-border bg-surface-muted px-5 py-6 text-sm text-foreground/64">
-                  Select a listing to see its reservations.
+                <div className="space-y-4">
+                  {isLoading ? (
+                    <div className="rounded-[1.6rem] border border-border bg-surface-muted px-5 py-6 text-sm text-foreground/64">
+                      Loading your listings...
+                    </div>
+                  ) : listings.length > 0 ? (
+                    listings.map((listing) => (
+                      <ListingCard
+                        key={listing.id}
+                        listing={listing}
+                        isSelected={listing.id === selectedListingId}
+                        onSelect={setSelectedListingId}
+                      />
+                    ))
+                  ) : (
+                    <div className="rounded-[1.6rem] border border-dashed border-border bg-surface-muted px-5 py-6 text-sm text-foreground/64">
+                      No listings are assigned to this restaurant yet.
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </section>
+              </section>
+
+              <section className="rounded-[1.9rem] border border-border/75 bg-white/92 p-6 shadow-[0_22px_55px_rgba(17,51,34,0.07)] backdrop-blur-sm">
+                <div className="mb-5 space-y-2">
+                  <h2 className="text-2xl font-semibold tracking-[-0.03em] text-foreground">
+                    {selectedListing
+                      ? `Reservations for ${selectedListing.title}`
+                      : "Reservations"}
+                  </h2>
+                  <p className="text-sm leading-7 text-foreground/66">
+                    {selectedListing
+                      ? `Pickup window ${selectedListing.pickupWindow}`
+                      : "Choose a listing on the left to inspect its reservation queue."}
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  {selectedListing ? (
+                    isReservationsLoading ? (
+                      <div className="rounded-[1.6rem] border border-border bg-surface-muted px-5 py-6 text-sm text-foreground/64">
+                        Loading reservations...
+                      </div>
+                    ) : reservations.length > 0 ? (
+                      reservations.map((reservation) => (
+                        <ReservationRow
+                          key={reservation.id}
+                          reservation={reservation}
+                        />
+                      ))
+                    ) : (
+                      <div className="rounded-[1.6rem] border border-dashed border-border bg-surface-muted px-5 py-6 text-sm text-foreground/64">
+                        No reservations for this listing yet.
+                      </div>
+                    )
+                  ) : (
+                    <div className="rounded-[1.6rem] border border-dashed border-border bg-surface-muted px-5 py-6 text-sm text-foreground/64">
+                      Select a listing to see its reservations.
+                    </div>
+                  )}
+                </div>
+              </section>
+            </>
+          )}
         </div>
       </motion.section>
     </main>
