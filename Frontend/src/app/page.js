@@ -25,7 +25,6 @@ import {
   createReservation,
   createStripePaymentIntent,
   fetchReservationDetails,
-  saveStoredReservation,
 } from "@/lib/reservation-client";
 import { currencyValueToCents } from "@/lib/price";
 
@@ -828,7 +827,6 @@ export default function HomePage() {
         const payload = await reserveFoodSale(foodSale.id);
         const reservationRecord = createReservationRecord(foodSale, payload);
 
-        saveStoredReservation(user, reservationRecord);
         applyReservedFoodSaleUpdate(foodSale.id, payload?.foodSale);
         setLatestReservation(reservationRecord);
 
@@ -862,8 +860,8 @@ export default function HomePage() {
         foodSale,
         reservation: {
           id: reservationId,
-          issuedAt: reservationDetails?.issued_at ?? "",
-          expiresAt: reservationDetails?.expires_at ?? "",
+          issuedAt: reservationDetails?.issuedAt ?? "",
+          expiresAt: reservationDetails?.expiresAt ?? "",
           quantity: 1,
           status: reservationDetails?.status ?? "UNPAID",
         },
@@ -902,7 +900,6 @@ export default function HomePage() {
       }
     );
 
-    saveStoredReservation(user, reservationRecord);
     applyReservedFoodSaleUpdate(pendingStripeCheckout.foodSale.id, {
       id: pendingStripeCheckout.foodSale.id,
       isReservedByCurrentUser: true,

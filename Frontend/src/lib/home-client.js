@@ -386,8 +386,8 @@ export async function reserveFoodSale(foodSaleId) {
   return {
     reservation: {
       id: reservationId,
-      issuedAt: reservationDetails?.issued_at ?? "",
-      expiresAt: reservationDetails?.expires_at ?? "",
+      issuedAt: reservationDetails?.issuedAt ?? "",
+      expiresAt: reservationDetails?.expiresAt ?? "",
     },
     foodSale: {
       id: String(foodSaleId),

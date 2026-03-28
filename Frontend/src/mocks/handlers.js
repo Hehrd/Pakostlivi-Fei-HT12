@@ -1,5 +1,67 @@
 ﻿import { http, HttpResponse } from "msw";
 
+function toEnumType(value) {
+  return String(value ?? "")
+    .trim()
+    .replace(/[\s-]+/g, "_")
+    .toUpperCase();
+}
+
+function toLabel(value) {
+  return String(value ?? "")
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function extractNumericId(value) {
+  return Number(String(value ?? "").replace(/\D/g, "")) || 0;
+}
+
+function buildPickupWindowFromIso(issuedAt, expiresAt) {
+  if (!issuedAt && !expiresAt) {
+    return "Pickup window unavailable";
+  }
+
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "UTC",
+  });
+
+  if (!issuedAt) {
+    return `Until ${formatter.format(new Date(expiresAt))}`;
+  }
+
+  if (!expiresAt) {
+    return `From ${formatter.format(new Date(issuedAt))}`;
+  }
+
+  return `${formatter.format(new Date(issuedAt))} - ${formatter.format(
+    new Date(expiresAt)
+  )}`;
+}
+
+function parsePickupWindowToIso(pickupWindow) {
+  const match = String(pickupWindow ?? "")
+    .trim()
+    .match(/^(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})$/);
+
+  if (!match) {
+    return {
+      issuedAt: null,
+      expiresAt: null,
+    };
+  }
+
+  const [, startTime, endTime] = match;
+  return {
+    issuedAt: `2026-03-28T${startTime}:00.000Z`,
+    expiresAt: `2026-03-28T${endTime}:00.000Z`,
+  };
+}
+
 const COMMON_ALLERGENS = [
   { id: "milk", label: "Milk" },
   { id: "eggs", label: "Eggs" },
@@ -10,7 +72,11 @@ const COMMON_ALLERGENS = [
   { id: "fish", label: "Fish" },
   { id: "shellfish", label: "Shellfish" },
   { id: "sesame", label: "Sesame" },
-];
+].map((item, index) => ({
+  ...item,
+  numericId: index + 1,
+  type: toEnumType(item.id),
+}));
 
 const DEFAULT_LOCATION = {
   lat: 42.6977,
@@ -184,6 +250,48 @@ const FOOD_SALES = [
     allergens: ["peanuts", "soy"],
   },
 ];
+
+const FOOD_TAG_DEFINITIONS = [...new Set(FOOD_SALES.flatMap((item) => item.tags))]
+  .sort((first, second) => first.localeCompare(second))
+  .map((tag, index) => ({
+    id: index + 1,
+    key: tag,
+    label: toLabel(tag),
+    type: toEnumType(tag),
+  }));
+
+const ALLERGEN_BY_KEY = new Map(COMMON_ALLERGENS.map((item) => [item.id, item]));
+const ALLERGEN_BY_NUMERIC_ID = new Map(
+  COMMON_ALLERGENS.map((item) => [item.numericId, item])
+);
+const FOOD_TAG_BY_KEY = new Map(FOOD_TAG_DEFINITIONS.map((item) => [item.key, item]));
+const FOOD_TAG_BY_ID = new Map(FOOD_TAG_DEFINITIONS.map((item) => [item.id, item]));
+
+for (const foodSale of FOOD_SALES) {
+  const numericId = extractNumericId(foodSale.id);
+  const initialDates = parsePickupWindowToIso(foodSale.pickupWindow);
+
+  foodSale.saleId ??= numericId;
+  foodSale.foodId ??= 1000 + numericId;
+  foodSale.quantity ??= 3;
+  foodSale.issuedAt ??= initialDates.issuedAt;
+  foodSale.expiresAt ??= initialDates.expiresAt;
+  foodSale.foodTagIds ??= foodSale.tags
+    .map((tag) => FOOD_TAG_BY_KEY.get(tag)?.id)
+    .filter(Boolean);
+  foodSale.allergenIds ??= foodSale.allergens
+    .map((allergen) => ALLERGEN_BY_KEY.get(allergen)?.numericId)
+    .filter(Boolean);
+}
+
+const FOODS = FOOD_SALES.map((foodSale) => ({
+  id: foodSale.foodId,
+  restaurantId: foodSale.restaurantId,
+  name: foodSale.title,
+  description: foodSale.description,
+  allergenIds: [...foodSale.allergenIds],
+  foodTagIds: [...foodSale.foodTagIds],
+}));
 
 const RESERVATIONS = [
   {
@@ -365,6 +473,128 @@ function getAdminRestaurants() {
   })).sort((first, second) => first.name.localeCompare(second.name));
 }
 
+function getRestaurantOwner(restaurantId) {
+  return [...registeredUsers.values()].find(
+    (user) => user.restaurantId === restaurantId
+  ) ?? null;
+}
+
+function buildRestaurantDto(restaurant) {
+  const owner = getRestaurantOwner(restaurant.id);
+
+  return {
+    id: restaurant.id,
+    name: restaurant.name,
+    googleMapsLink: restaurant.googleMapsUrl ?? buildGoogleMapsUrl(restaurant),
+    longitude: Number(restaurant.lng),
+    latitude: Number(restaurant.lat),
+    ownerId: owner?.id ?? null,
+    ownerEmail: owner?.email ?? "",
+    ownerFirstName: owner?.firstName ?? "",
+    ownerLastName: owner?.lastName ?? "",
+  };
+}
+
+function buildProfileFromUser(user) {
+  return {
+    id: user?.id ?? null,
+    firstName: user?.firstName ?? "",
+    lastName: user?.lastName ?? "",
+    profilePictureUrl: user?.profilePictureUrl ?? "",
+    allergenTypes: (Array.isArray(user?.allergens) ? user.allergens : [])
+      .map((allergen) => ALLERGEN_BY_KEY.get(allergen))
+      .filter(Boolean)
+      .map((item) => ({
+        id: item.numericId,
+        type: item.type,
+      })),
+    foodTagTypes: (Array.isArray(user?.preferredFoodTags)
+      ? user.preferredFoodTags
+      : []
+    )
+      .map((tag) => FOOD_TAG_BY_KEY.get(tag))
+      .filter(Boolean)
+      .map((item) => ({
+        id: item.id,
+        type: item.type,
+      })),
+  };
+}
+
+function buildFoodResponse(food) {
+  return {
+    id: food.id,
+    restaurantId: food.restaurantId,
+    name: food.name,
+    description: food.description,
+    allergenIds: [...food.allergenIds],
+    foodTagIds: [...food.foodTagIds],
+  };
+}
+
+function buildFoodSaleResponse(foodSale) {
+  return {
+    id: foodSale.saleId,
+    foodId: foodSale.foodId,
+    price: Math.round(Number(foodSale.price ?? 0) * 100),
+    quantity: Number(foodSale.quantity ?? 0),
+    issuedAt: foodSale.issuedAt,
+    expiresAt: foodSale.expiresAt,
+  };
+}
+
+function buildPagedResponse(items, page, size) {
+  const pageNumber = Math.max(Number(page) || 0, 0);
+  const pageSize = Math.max(Number(size) || items.length || 1, 1);
+  const offset = pageNumber * pageSize;
+  const pagedItems = items.slice(offset, offset + pageSize);
+
+  return {
+    data: pagedItems,
+    page: pageNumber,
+    size: pageSize,
+    total: items.length,
+    totalPages: Math.max(1, Math.ceil(items.length / pageSize)),
+  };
+}
+
+function getFoodById(foodId) {
+  return FOODS.find((food) => Number(food.id) === Number(foodId)) ?? null;
+}
+
+function getFoodSaleBySaleId(saleId) {
+  return FOOD_SALES.find(
+    (foodSale) => Number(foodSale.saleId) === Number(saleId)
+  ) ?? null;
+}
+
+function buildRestaurantWorkspacePayload(restaurantId) {
+  const restaurant = RESTAURANTS.find((item) => item.id === restaurantId);
+  const currentRestaurant = restaurant
+    ? {
+        ...restaurant,
+        googleMapsUrl: restaurant.googleMapsUrl ?? buildGoogleMapsUrl(restaurant),
+        foodSaleCount: getRestaurantFoodSaleCount(restaurant.id),
+        reservationCount: getRestaurantReservationCount(restaurant.id),
+      }
+    : null;
+
+  const foodSales = getRestaurantFoodSalesForOwner(restaurantId);
+
+  return {
+    restaurant: currentRestaurant,
+    foodSales,
+    totals: {
+      foodSaleCount: foodSales.length,
+      reservationCount: currentRestaurant?.reservationCount ?? 0,
+      reservedMeals: foodSales.reduce(
+        (sum, foodSale) => sum + (foodSale.reservedQuantity ?? 0),
+        0
+      ),
+    },
+  };
+}
+
 function getNextRestaurantId() {
   const maxId = RESTAURANTS.reduce((currentMax, restaurant) => {
     const numericId = Number(String(restaurant.id).replace(/\D/g, "")) || 0;
@@ -372,6 +602,29 @@ function getNextRestaurantId() {
   }, 0);
 
   return `r${maxId + 1}`;
+}
+
+function getNextFoodSaleId() {
+  const maxId = FOOD_SALES.reduce(
+    (currentMax, foodSale) => Math.max(currentMax, extractNumericId(foodSale.id)),
+    0
+  );
+
+  return `l${maxId + 1}`;
+}
+
+function getNextSaleNumericId() {
+  return FOOD_SALES.reduce(
+    (currentMax, foodSale) => Math.max(currentMax, Number(foodSale.saleId) || 0),
+    0
+  ) + 1;
+}
+
+function getNextFoodNumericId() {
+  return FOODS.reduce(
+    (currentMax, food) => Math.max(currentMax, Number(food.id) || 0),
+    1000
+  ) + 1;
 }
 
 function getNextReservationId() {
@@ -502,6 +755,13 @@ function getRestaurantFoodSalesForOwner(restaurantId) {
 
       return {
         ...foodSale,
+        saleId: foodSale.saleId,
+        foodId: foodSale.foodId,
+        quantity: Number(foodSale.quantity ?? 0) || null,
+        issuedAt: foodSale.issuedAt ?? null,
+        expiresAt: foodSale.expiresAt ?? null,
+        allergenIds: [...(foodSale.allergenIds ?? [])],
+        foodTagIds: [...(foodSale.foodTagIds ?? [])],
         reservationCount: foodSaleReservations.length,
         reservedQuantity: foodSaleReservations.reduce(
           (sum, reservation) => sum + reservation.quantity,
@@ -1010,20 +1270,7 @@ export const handlers = [
       );
     }
 
-    const foodSales = getRestaurantFoodSalesForOwner(restaurant.id);
-
-    return HttpResponse.json({
-      restaurant,
-      foodSales,
-      totals: {
-        foodSaleCount: foodSales.length,
-        reservationCount: restaurant.reservationCount,
-        reservedMeals: foodSales.reduce(
-          (sum, foodSale) => sum + (foodSale.reservedQuantity ?? 0),
-          0
-        ),
-      },
-    });
+    return HttpResponse.json(buildRestaurantWorkspacePayload(restaurant.id));
   }),
 
   http.get("*/restaurant/food-sales/:foodSaleId/reservations", async ({ request, params }) => {
@@ -1075,6 +1322,301 @@ export const handlers = [
       },
       reservations: getReservationsForFoodSale(foodSale.id),
     });
+  }),
+
+  http.put("*/restaurant/food-sales/restaurant", async ({ request }) => {
+    const guardResponse = requireRestaurant(
+      "/restaurant/food-sales/restaurant",
+      request
+    );
+
+    if (guardResponse) {
+      return guardResponse;
+    }
+
+    const restaurant = getCurrentUsersRestaurant();
+
+    if (!restaurant) {
+      return HttpResponse.json(
+        buildAuthError(
+          404,
+          "Not Found",
+          "No restaurant is assigned to this account",
+          "/restaurant/food-sales/restaurant"
+        ),
+        {
+          status: 404,
+        }
+      );
+    }
+
+    const body = await request.json();
+    const name = body?.name?.trim();
+    const googleMapsUrl = body?.googleMapsUrl?.trim();
+    const lat = Number(body?.lat);
+    const lng = Number(body?.lng);
+
+    if (!name || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return HttpResponse.json(
+        buildAuthError(
+          400,
+          "Bad Request",
+          "Restaurant name and valid coordinates are required",
+          "/restaurant/food-sales/restaurant"
+        ),
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const restaurantIndex = RESTAURANTS.findIndex(
+      (item) => item.id === restaurant.id
+    );
+    const updatedRestaurant = {
+      ...RESTAURANTS[restaurantIndex],
+      name,
+      lat,
+      lng,
+      googleMapsUrl: googleMapsUrl || buildGoogleMapsUrl({ lat, lng }),
+    };
+
+    RESTAURANTS.splice(restaurantIndex, 1, updatedRestaurant);
+
+    return HttpResponse.json({
+      message: "Restaurant updated.",
+      restaurant: {
+        ...updatedRestaurant,
+        foodSaleCount: getRestaurantFoodSaleCount(updatedRestaurant.id),
+      },
+    });
+  }),
+
+  http.post("*/restaurant/food-sales", async ({ request }) => {
+    const guardResponse = requireRestaurant("/restaurant/food-sales", request);
+
+    if (guardResponse) {
+      return guardResponse;
+    }
+
+    const restaurant = getCurrentUsersRestaurant();
+
+    if (!restaurant) {
+      return HttpResponse.json(
+        buildAuthError(
+          404,
+          "Not Found",
+          "No restaurant is assigned to this account",
+          "/restaurant/food-sales"
+        ),
+        {
+          status: 404,
+        }
+      );
+    }
+
+    const body = await request.json();
+    const title = body?.title?.trim();
+    const description = body?.description?.trim();
+    const price = Number(body?.price);
+    const quantity = Number(body?.quantity);
+    const issuedAt = body?.issuedAt ?? null;
+    const expiresAt = body?.expiresAt ?? null;
+    const allergenIds = Array.isArray(body?.allergenIds)
+      ? body.allergenIds.map((item) => Number(item))
+      : [];
+    const foodTagIds = Array.isArray(body?.foodTagIds)
+      ? body.foodTagIds.map((item) => Number(item))
+      : [];
+
+    if (!title || !Number.isFinite(price) || price < 0 || !Number.isFinite(quantity) || quantity <= 0) {
+      return HttpResponse.json(
+        buildAuthError(
+          400,
+          "Bad Request",
+          "Title, price, and quantity are required",
+          "/restaurant/food-sales"
+        ),
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const nextId = getNextFoodSaleId();
+    const nextSaleId = getNextSaleNumericId();
+    const nextFoodId = getNextFoodNumericId();
+    const nextFood = {
+      id: nextFoodId,
+      restaurantId: restaurant.id,
+      name: title,
+      description: description || "",
+      allergenIds,
+      foodTagIds,
+    };
+    const nextFoodSale = {
+      id: nextId,
+      saleId: nextSaleId,
+      foodId: nextFoodId,
+      restaurantId: restaurant.id,
+      title,
+      description: description || "",
+      price,
+      quantity,
+      issuedAt,
+      expiresAt,
+      pickupWindow: buildPickupWindowFromIso(issuedAt, expiresAt),
+      tags: foodTagIds
+        .map((item) => FOOD_TAG_BY_ID.get(item)?.key)
+        .filter(Boolean),
+      foodTagIds,
+      allergens: allergenIds
+        .map((item) => ALLERGEN_BY_NUMERIC_ID.get(item)?.id)
+        .filter(Boolean),
+      allergenIds,
+    };
+
+    FOODS.push(nextFood);
+    FOOD_SALES.push(nextFoodSale);
+
+    return HttpResponse.json(buildRestaurantWorkspacePayload(restaurant.id), {
+      status: 201,
+    });
+  }),
+
+  http.put("*/restaurant/food-sales/:saleId", async ({ request, params }) => {
+    const guardResponse = requireRestaurant(
+      `/restaurant/food-sales/${params.saleId}`,
+      request
+    );
+
+    if (guardResponse) {
+      return guardResponse;
+    }
+
+    const restaurant = getCurrentUsersRestaurant();
+    const foodSale = getFoodSaleBySaleId(params.saleId);
+
+    if (!restaurant || !foodSale || foodSale.restaurantId !== restaurant.id) {
+      return HttpResponse.json(
+        buildAuthError(
+          404,
+          "Not Found",
+          "Food sale not found for this restaurant",
+          `/restaurant/food-sales/${params.saleId}`
+        ),
+        {
+          status: 404,
+        }
+      );
+    }
+
+    const body = await request.json();
+    const title = body?.title?.trim();
+    const description = body?.description?.trim();
+    const price = Number(body?.price);
+    const quantity = Number(body?.quantity);
+    const issuedAt = body?.issuedAt ?? null;
+    const expiresAt = body?.expiresAt ?? null;
+    const allergenIds = Array.isArray(body?.allergenIds)
+      ? body.allergenIds.map((item) => Number(item))
+      : [];
+    const foodTagIds = Array.isArray(body?.foodTagIds)
+      ? body.foodTagIds.map((item) => Number(item))
+      : [];
+
+    if (!title || !Number.isFinite(price) || price < 0 || !Number.isFinite(quantity) || quantity <= 0) {
+      return HttpResponse.json(
+        buildAuthError(
+          400,
+          "Bad Request",
+          "Title, price, and quantity are required",
+          `/restaurant/food-sales/${params.saleId}`
+        ),
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const foodSaleIndex = FOOD_SALES.findIndex((item) => item.id === foodSale.id);
+    const foodIndex = FOODS.findIndex((item) => item.id === foodSale.foodId);
+
+    FOODS.splice(foodIndex, 1, {
+      ...FOODS[foodIndex],
+      name: title,
+      description: description || "",
+      allergenIds,
+      foodTagIds,
+    });
+
+    FOOD_SALES.splice(foodSaleIndex, 1, {
+      ...FOOD_SALES[foodSaleIndex],
+      title,
+      description: description || "",
+      price,
+      quantity,
+      issuedAt,
+      expiresAt,
+      pickupWindow: buildPickupWindowFromIso(issuedAt, expiresAt),
+      tags: foodTagIds
+        .map((item) => FOOD_TAG_BY_ID.get(item)?.key)
+        .filter(Boolean),
+      foodTagIds,
+      allergens: allergenIds
+        .map((item) => ALLERGEN_BY_NUMERIC_ID.get(item)?.id)
+        .filter(Boolean),
+      allergenIds,
+    });
+
+    return HttpResponse.json(buildRestaurantWorkspacePayload(restaurant.id));
+  }),
+
+  http.delete("*/restaurant/food-sales/:saleId", async ({ request, params }) => {
+    const guardResponse = requireRestaurant(
+      `/restaurant/food-sales/${params.saleId}`,
+      request
+    );
+
+    if (guardResponse) {
+      return guardResponse;
+    }
+
+    const restaurant = getCurrentUsersRestaurant();
+    const foodSale = getFoodSaleBySaleId(params.saleId);
+
+    if (!restaurant || !foodSale || foodSale.restaurantId !== restaurant.id) {
+      return HttpResponse.json(
+        buildAuthError(
+          404,
+          "Not Found",
+          "Food sale not found for this restaurant",
+          `/restaurant/food-sales/${params.saleId}`
+        ),
+        {
+          status: 404,
+        }
+      );
+    }
+
+    const foodSaleIndex = FOOD_SALES.findIndex((item) => item.id === foodSale.id);
+    const foodIndex = FOODS.findIndex((item) => item.id === foodSale.foodId);
+
+    if (foodSaleIndex !== -1) {
+      FOOD_SALES.splice(foodSaleIndex, 1);
+    }
+
+    if (foodIndex !== -1) {
+      FOODS.splice(foodIndex, 1);
+    }
+
+    for (let index = RESERVATIONS.length - 1; index >= 0; index -= 1) {
+      if (RESERVATIONS[index].foodSaleId === foodSale.id) {
+        RESERVATIONS.splice(index, 1);
+      }
+    }
+
+    return HttpResponse.json(buildRestaurantWorkspacePayload(restaurant.id));
   }),
 
   http.post("*/food-sales/:foodSaleId/reserve", async ({ request, params }) => {
@@ -1339,6 +1881,684 @@ export const handlers = [
     });
   }),
 
+  http.get("*/profiles/:id", async ({ request, params }) => {
+    const guardResponse = requireAuthenticatedUser(`/profiles/${params.id}`, request);
+
+    if (guardResponse) {
+      return guardResponse;
+    }
+
+    const requestedUser = [...registeredUsers.values()].find(
+      (user) => String(user.id) === String(params.id)
+    );
+
+    if (!requestedUser) {
+      return HttpResponse.json(
+        buildAuthError(404, "Not Found", "Profile not found", `/profiles/${params.id}`),
+        {
+          status: 404,
+        }
+      );
+    }
+
+    return HttpResponse.json(buildProfileFromUser(requestedUser));
+  }),
+
+  http.put("*/profiles", async ({ request }) => {
+    const guardResponse = requireAuthenticatedUser("/profiles", request);
+
+    if (guardResponse) {
+      return guardResponse;
+    }
+
+    const body = await request.json();
+
+    if (String(body?.id) !== String(currentUser.id)) {
+      return HttpResponse.json(buildForbiddenError("/profiles"), {
+        status: 403,
+      });
+    }
+
+    const nextAllergens = Array.isArray(body?.allergenTypes)
+      ? body.allergenTypes
+          .map((item) => ALLERGEN_BY_NUMERIC_ID.get(Number(item?.id)))
+          .filter(Boolean)
+          .map((item) => item.id)
+      : currentUser.allergens;
+    const nextFoodTags = Array.isArray(body?.foodTagTypes)
+      ? body.foodTagTypes
+          .map((item) => FOOD_TAG_BY_ID.get(Number(item?.id)))
+          .filter(Boolean)
+          .map((item) => item.key)
+      : currentUser.preferredFoodTags;
+
+    currentUser = setCurrentUser({
+      ...currentUser,
+      firstName: body?.firstName ?? currentUser.firstName,
+      lastName: body?.lastName ?? currentUser.lastName,
+      profilePictureUrl: body?.profilePictureUrl ?? currentUser.profilePictureUrl,
+      allergens: nextAllergens,
+      preferredFoodTags: nextFoodTags,
+    });
+
+    return HttpResponse.json(buildProfileFromUser(currentUser));
+  }),
+
+  http.get("*/tags/allergens", async () =>
+    HttpResponse.json(
+      COMMON_ALLERGENS.map((item) => ({
+        id: item.numericId,
+        type: item.type,
+      }))
+    )
+  ),
+
+  http.get("*/tags/food", async () =>
+    HttpResponse.json(
+      FOOD_TAG_DEFINITIONS.map((item) => ({
+        id: item.id,
+        type: item.type,
+      }))
+    )
+  ),
+
+  http.post("*/restaurants/onboard", async ({ request }) => {
+    const guardResponse = requireRestaurant("/restaurants/onboard", request);
+
+    if (guardResponse) {
+      return guardResponse;
+    }
+
+    return HttpResponse.json({
+      url: "https://connect.stripe.com/mock-onboarding/munchman",
+    });
+  }),
+
+  http.get("*/restaurants/by-owner", async ({ request }) => {
+    const guardResponse = requireRestaurant("/restaurants/by-owner", request);
+
+    if (guardResponse) {
+      return guardResponse;
+    }
+
+    const url = new URL(request.url);
+    const page = url.searchParams.get("page");
+    const size = url.searchParams.get("size");
+    const restaurants = getAdminRestaurants()
+      .filter((restaurant) => restaurant.id === currentUser.restaurantId)
+      .map(buildRestaurantDto);
+
+    return HttpResponse.json(buildPagedResponse(restaurants, page, size));
+  }),
+
+  http.get("*/restaurants", async ({ request }) => {
+    const url = new URL(request.url);
+    const page = url.searchParams.get("page");
+    const size = url.searchParams.get("size");
+    const restaurants = getAdminRestaurants().map(buildRestaurantDto);
+    const pagedResponse = buildPagedResponse(restaurants, page, size);
+
+    return HttpResponse.json({
+      ...pagedResponse,
+      restaurants: pagedResponse.data,
+      pagination: {
+        page: pagedResponse.page + 1,
+        pageSize: pagedResponse.size,
+        totalItems: pagedResponse.total,
+        totalPages: pagedResponse.totalPages,
+      },
+    });
+  }),
+
+  http.get("*/restaurants/:restaurantId", async ({ params }) => {
+    const restaurant = RESTAURANTS.find(
+      (item) => item.id === params.restaurantId
+    );
+
+    if (!restaurant) {
+      return HttpResponse.json(
+        buildAuthError(
+          404,
+          "Not Found",
+          "Restaurant not found",
+          `/restaurants/${params.restaurantId}`
+        ),
+        {
+          status: 404,
+        }
+      );
+    }
+
+    return HttpResponse.json(buildRestaurantDto(restaurant));
+  }),
+
+  http.post("*/restaurants", async ({ request }) => {
+    const guardResponse = requireAdmin("/restaurants", request);
+
+    if (guardResponse) {
+      return guardResponse;
+    }
+
+    const body = await request.json();
+    const signUp = body?.signUpReqDTO ?? {};
+    const restaurantCreateData = body?.restaurantCreateData ?? {};
+    const name = restaurantCreateData?.name?.trim();
+    const googleMapsLink = restaurantCreateData?.googleMapsLink?.trim();
+    const lat = Number(restaurantCreateData?.latitude);
+    const lng = Number(restaurantCreateData?.longitude);
+
+    if (!name || !googleMapsLink || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return HttpResponse.json(
+        buildAuthError(
+          400,
+          "Bad Request",
+          "Restaurant name, latitude, longitude, and Google Maps link are required",
+          "/restaurants"
+        ),
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const nextRestaurant = {
+      id: getNextRestaurantId(),
+      name,
+      lat,
+      lng,
+      googleMapsUrl: googleMapsLink,
+    };
+    const nextOwner = buildUser({
+      id: Date.now(),
+      email: signUp?.email?.trim() || `restaurant${Date.now()}@munchman.com`,
+      password: signUp?.password || "anything123",
+      firstName: signUp?.firstName?.trim() || "Restaurant",
+      lastName: signUp?.lastName?.trim() || "Owner",
+      profilePictureUrl: signUp?.profilePictureUrl ?? "",
+      role: "RESTAURANT",
+      restaurantId: nextRestaurant.id,
+      preferredFoodTags: [],
+    });
+
+    RESTAURANTS.push(nextRestaurant);
+    saveRegisteredUser(nextOwner);
+
+    return HttpResponse.json(buildRestaurantDto(nextRestaurant), {
+      status: 201,
+    });
+  }),
+
+  http.put("*/restaurants", async ({ request }) => {
+    const guardResponse = requireAuthenticatedUser("/restaurants", request);
+
+    if (guardResponse) {
+      return guardResponse;
+    }
+
+    const body = await request.json();
+    const restaurantIndex = RESTAURANTS.findIndex(
+      (item) => item.id === body?.id || String(item.id) === String(body?.id)
+    );
+
+    if (restaurantIndex === -1) {
+      return HttpResponse.json(
+        buildAuthError(404, "Not Found", "Restaurant not found", "/restaurants"),
+        {
+          status: 404,
+        }
+      );
+    }
+
+    const currentRestaurantRecord = RESTAURANTS[restaurantIndex];
+    const userOwnsRestaurant = currentUser.restaurantId === currentRestaurantRecord.id;
+
+    if (currentUser.role !== "ADMIN" && !userOwnsRestaurant) {
+      return HttpResponse.json(buildForbiddenError("/restaurants"), {
+        status: 403,
+      });
+    }
+
+    const updatedRestaurant = {
+      ...currentRestaurantRecord,
+      name: body?.name?.trim() || currentRestaurantRecord.name,
+      googleMapsUrl:
+        body?.googleMapsLink?.trim() ||
+        currentRestaurantRecord.googleMapsUrl ||
+        buildGoogleMapsUrl(currentRestaurantRecord),
+      lng: Number.isFinite(Number(body?.longitude))
+        ? Number(body.longitude)
+        : currentRestaurantRecord.lng,
+      lat: Number.isFinite(Number(body?.latitude))
+        ? Number(body.latitude)
+        : currentRestaurantRecord.lat,
+    };
+
+    RESTAURANTS.splice(restaurantIndex, 1, updatedRestaurant);
+
+    return HttpResponse.json(buildRestaurantDto(updatedRestaurant));
+  }),
+
+  http.delete("*/restaurants/:restaurantId", async ({ request, params }) => {
+    const guardResponse = requireAdmin(`/restaurants/${params.restaurantId}`, request);
+
+    if (guardResponse) {
+      return guardResponse;
+    }
+
+    const restaurantIndex = RESTAURANTS.findIndex(
+      (item) => item.id === params.restaurantId
+    );
+
+    if (restaurantIndex === -1) {
+      return HttpResponse.json(
+        buildAuthError(
+          404,
+          "Not Found",
+          "Restaurant not found",
+          `/restaurants/${params.restaurantId}`
+        ),
+        {
+          status: 404,
+        }
+      );
+    }
+
+    RESTAURANTS.splice(restaurantIndex, 1);
+
+    for (let index = FOOD_SALES.length - 1; index >= 0; index -= 1) {
+      if (FOOD_SALES[index].restaurantId === params.restaurantId) {
+        const removedFoodSale = FOOD_SALES[index];
+
+        FOOD_SALES.splice(index, 1);
+
+        const linkedFoodIndex = FOODS.findIndex(
+          (food) => Number(food.id) === Number(removedFoodSale.foodId)
+        );
+
+        if (linkedFoodIndex !== -1) {
+          FOODS.splice(linkedFoodIndex, 1);
+        }
+
+        for (let reservationIndex = RESERVATIONS.length - 1; reservationIndex >= 0; reservationIndex -= 1) {
+          if (RESERVATIONS[reservationIndex].foodSaleId === removedFoodSale.id) {
+            RESERVATIONS.splice(reservationIndex, 1);
+          }
+        }
+      }
+    }
+
+    return new HttpResponse(null, {
+      status: 204,
+    });
+  }),
+
+  http.get("*/food-sales/restaurant/:restaurantId", async ({ params }) =>
+    HttpResponse.json(
+      FOOD_SALES.filter((item) => item.restaurantId === params.restaurantId).map(
+        buildFoodSaleResponse
+      )
+    )
+  ),
+
+  http.get("*/foods/:foodId", async ({ params }) => {
+    const food = getFoodById(params.foodId);
+
+    if (!food) {
+      return HttpResponse.json(
+        buildAuthError(404, "Not Found", "Food not found", `/foods/${params.foodId}`),
+        {
+          status: 404,
+        }
+      );
+    }
+
+    return HttpResponse.json(buildFoodResponse(food));
+  }),
+
+  http.post("*/foods", async ({ request }) => {
+    const guardResponse = requireRestaurant("/foods", request);
+
+    if (guardResponse) {
+      return guardResponse;
+    }
+
+    const body = await request.json();
+    const nextFood = {
+      id: getNextFoodNumericId(),
+      restaurantId: body?.restaurantId,
+      name: body?.name?.trim() || "Untitled food",
+      description: body?.description?.trim() || "",
+      allergenIds: Array.isArray(body?.allergenIds)
+        ? body.allergenIds.map((item) => Number(item))
+        : [],
+      foodTagIds: Array.isArray(body?.foodTagIds)
+        ? body.foodTagIds.map((item) => Number(item))
+        : [],
+    };
+
+    FOODS.push(nextFood);
+    return HttpResponse.json(buildFoodResponse(nextFood), {
+      status: 201,
+    });
+  }),
+
+  http.put("*/foods", async ({ request }) => {
+    const guardResponse = requireRestaurant("/foods", request);
+
+    if (guardResponse) {
+      return guardResponse;
+    }
+
+    const body = await request.json();
+    const foodIndex = FOODS.findIndex((item) => Number(item.id) === Number(body?.id));
+
+    if (foodIndex === -1) {
+      return HttpResponse.json(
+        buildAuthError(404, "Not Found", "Food not found", "/foods"),
+        {
+          status: 404,
+        }
+      );
+    }
+
+    FOODS.splice(foodIndex, 1, {
+      ...FOODS[foodIndex],
+      name: body?.name?.trim() || FOODS[foodIndex].name,
+      description: body?.description?.trim() || "",
+      allergenIds: Array.isArray(body?.allergenIds)
+        ? body.allergenIds.map((item) => Number(item))
+        : [],
+      foodTagIds: Array.isArray(body?.foodTagIds)
+        ? body.foodTagIds.map((item) => Number(item))
+        : [],
+    });
+
+    const linkedFoodSaleIndex = FOOD_SALES.findIndex(
+      (item) => Number(item.foodId) === Number(body?.id)
+    );
+
+    if (linkedFoodSaleIndex !== -1) {
+      FOOD_SALES.splice(linkedFoodSaleIndex, 1, {
+        ...FOOD_SALES[linkedFoodSaleIndex],
+        title: FOODS[foodIndex].name,
+        description: FOODS[foodIndex].description,
+        foodTagIds: [...FOODS[foodIndex].foodTagIds],
+        allergenIds: [...FOODS[foodIndex].allergenIds],
+        tags: FOODS[foodIndex].foodTagIds
+          .map((item) => FOOD_TAG_BY_ID.get(item)?.key)
+          .filter(Boolean),
+        allergens: FOODS[foodIndex].allergenIds
+          .map((item) => ALLERGEN_BY_NUMERIC_ID.get(item)?.id)
+          .filter(Boolean),
+      });
+    }
+
+    return HttpResponse.json(buildFoodResponse(FOODS[foodIndex]));
+  }),
+
+  http.post("*/food-sales", async ({ request }) => {
+    const guardResponse = requireRestaurant("/food-sales", request);
+
+    if (guardResponse) {
+      return guardResponse;
+    }
+
+    const body = await request.json();
+    const food = getFoodById(body?.foodId);
+
+    if (!food) {
+      return HttpResponse.json(
+        buildAuthError(404, "Not Found", "Food not found", "/food-sales"),
+        {
+          status: 404,
+        }
+      );
+    }
+
+    const nextFoodSale = {
+      id: getNextFoodSaleId(),
+      saleId: getNextSaleNumericId(),
+      foodId: food.id,
+      restaurantId: food.restaurantId,
+      title: food.name,
+      description: food.description,
+      price: Number(body?.price ?? 0) / 100,
+      quantity: Number(body?.quantity ?? 0),
+      issuedAt: body?.issuedAt ?? null,
+      expiresAt: body?.expiresAt ?? null,
+      pickupWindow: buildPickupWindowFromIso(body?.issuedAt, body?.expiresAt),
+      foodTagIds: [...food.foodTagIds],
+      allergenIds: [...food.allergenIds],
+      tags: food.foodTagIds
+        .map((item) => FOOD_TAG_BY_ID.get(item)?.key)
+        .filter(Boolean),
+      allergens: food.allergenIds
+        .map((item) => ALLERGEN_BY_NUMERIC_ID.get(item)?.id)
+        .filter(Boolean),
+    };
+
+    FOOD_SALES.push(nextFoodSale);
+    return HttpResponse.json(buildFoodSaleResponse(nextFoodSale), {
+      status: 201,
+    });
+  }),
+
+  http.put("*/food-sales", async ({ request }) => {
+    const guardResponse = requireRestaurant("/food-sales", request);
+
+    if (guardResponse) {
+      return guardResponse;
+    }
+
+    const body = await request.json();
+    const foodSaleIndex = FOOD_SALES.findIndex(
+      (item) => Number(item.saleId) === Number(body?.id)
+    );
+
+    if (foodSaleIndex === -1) {
+      return HttpResponse.json(
+        buildAuthError(404, "Not Found", "Food sale not found", "/food-sales"),
+        {
+          status: 404,
+        }
+      );
+    }
+
+    FOOD_SALES.splice(foodSaleIndex, 1, {
+      ...FOOD_SALES[foodSaleIndex],
+      foodId: Number(body?.foodId ?? FOOD_SALES[foodSaleIndex].foodId),
+      price: Number(body?.price ?? 0) / 100,
+      quantity: Number(body?.quantity ?? 0),
+      issuedAt: body?.issuedAt ?? null,
+      expiresAt: body?.expiresAt ?? null,
+      pickupWindow: buildPickupWindowFromIso(body?.issuedAt, body?.expiresAt),
+    });
+
+    return HttpResponse.json(buildFoodSaleResponse(FOOD_SALES[foodSaleIndex]));
+  }),
+
+  http.delete("*/food-sales/:saleId", async ({ request, params }) => {
+    const guardResponse = requireRestaurant(`/food-sales/${params.saleId}`, request);
+
+    if (guardResponse) {
+      return guardResponse;
+    }
+
+    const foodSaleIndex = FOOD_SALES.findIndex(
+      (item) => Number(item.saleId) === Number(params.saleId)
+    );
+
+    if (foodSaleIndex === -1) {
+      return HttpResponse.json(
+        buildAuthError(
+          404,
+          "Not Found",
+          "Food sale not found",
+          `/food-sales/${params.saleId}`
+        ),
+        {
+          status: 404,
+        }
+      );
+    }
+
+    const [removedFoodSale] = FOOD_SALES.splice(foodSaleIndex, 1);
+
+    const linkedFoodIndex = FOODS.findIndex(
+      (food) => Number(food.id) === Number(removedFoodSale?.foodId)
+    );
+
+    if (linkedFoodIndex !== -1) {
+      FOODS.splice(linkedFoodIndex, 1);
+    }
+
+    for (let reservationIndex = RESERVATIONS.length - 1; reservationIndex >= 0; reservationIndex -= 1) {
+      if (RESERVATIONS[reservationIndex].foodSaleId === removedFoodSale?.id) {
+        RESERVATIONS.splice(reservationIndex, 1);
+      }
+    }
+
+    return new HttpResponse(null, {
+      status: 204,
+    });
+  }),
+
+  http.get("*/reservations/by-user", async ({ request }) => {
+    const guardResponse = requireClient("/reservations/by-user", request);
+
+    if (guardResponse) {
+      return guardResponse;
+    }
+
+    const reservations = RESERVATIONS.filter(
+      (reservation) =>
+        reservation.customerEmail?.toLowerCase() === currentUser.email?.toLowerCase()
+    ).map((reservation) => ({
+      reservationId: reservation.id,
+      issued_at: reservation.issuedAt ?? reservation.reservedAt,
+      expires_at:
+        reservation.expiresAt ??
+        new Date(new Date(reservation.reservedAt).getTime() + 60 * 60 * 1000).toISOString(),
+      status: reservation.status,
+    }));
+
+    return HttpResponse.json({
+      data: reservations,
+      page: 0,
+      size: reservations.length,
+      total: reservations.length,
+      totalPages: 1,
+    });
+  }),
+
+  http.post("*/reservations", async ({ request }) => {
+    const guardResponse = requireClient("/reservations", request);
+
+    if (guardResponse) {
+      return guardResponse;
+    }
+
+    const body = await request.json();
+    const foodSale = getFoodSaleBySaleId(body?.foodSaleId) ?? FOOD_SALES.find(
+      (item) => item.id === body?.foodSaleId
+    );
+
+    if (!foodSale) {
+      return HttpResponse.json(
+        buildAuthError(404, "Not Found", "Food sale not found", "/reservations"),
+        {
+          status: 404,
+        }
+      );
+    }
+
+    const reservationId = getNextReservationId();
+    const reservation = {
+      id: reservationId,
+      foodSaleId: foodSale.id,
+      customerName: getUserFullName(currentUser) || currentUser.email,
+      customerEmail: currentUser.email,
+      quantity: 1,
+      status: "UNPAID",
+      reservedAt: new Date().toISOString(),
+      pickupCode: buildPickupCode(foodSale.id, reservationId),
+      issuedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    };
+
+    RESERVATIONS.push(reservation);
+
+    return HttpResponse.json(reservation.id, {
+      status: 201,
+    });
+  }),
+
+  http.get("*/reservations/:reservationId", async ({ request, params }) => {
+    const guardResponse = requireClient(`/reservations/${params.reservationId}`, request);
+
+    if (guardResponse) {
+      return guardResponse;
+    }
+
+    const reservation = RESERVATIONS.find(
+      (item) => item.id === params.reservationId
+    );
+
+    if (!reservation) {
+      return HttpResponse.json(
+        buildAuthError(
+          404,
+          "Not Found",
+          "Reservation not found",
+          `/reservations/${params.reservationId}`
+        ),
+        {
+          status: 404,
+        }
+      );
+    }
+
+    return HttpResponse.json({
+      reservationId: reservation.id,
+      issued_at: reservation.issuedAt ?? reservation.reservedAt,
+      expires_at:
+        reservation.expiresAt ??
+        new Date(new Date(reservation.reservedAt).getTime() + 60 * 60 * 1000).toISOString(),
+      status: reservation.status,
+      pickupCode: reservation.pickupCode ?? "",
+    });
+  }),
+
+  http.post("*/payments", async ({ request }) => {
+    const guardResponse = requireClient("/payments", request);
+
+    if (guardResponse) {
+      return guardResponse;
+    }
+
+    const body = await request.json();
+    const reservation =
+      RESERVATIONS.find((item) => item.id === body?.foodSaleId) ??
+      RESERVATIONS.find((item) => item.foodSaleId === body?.foodSaleId);
+
+    if (!reservation) {
+      return HttpResponse.json(
+        buildAuthError(404, "Not Found", "Reservation not found", "/payments"),
+        {
+          status: 404,
+        }
+      );
+    }
+
+    reservation.status = "UNPAID";
+
+    return HttpResponse.json({
+      clientSecret: `mock_pi_${reservation.id}_secret_${Math.round(
+        Number(body?.amount ?? 0)
+      )}`,
+    });
+  }),
+
   http.post("*/account/logout", async () => {
     currentUser = null;
 
@@ -1368,11 +2588,23 @@ export const handlers = [
   http.get("*/restaurants/nearby", async ({ request }) => {
     const url = new URL(request.url);
     const location = parseLocation(url.searchParams);
-    const page = Number(url.searchParams.get("page")) || 1;
-    const pageSize = Number(url.searchParams.get("pageSize")) || 4;
+    const usesBackendPagingShape =
+      url.searchParams.has("size") || Number(url.searchParams.get("page")) === 0;
+    const page = usesBackendPagingShape
+      ? (Number(url.searchParams.get("page")) || 0) + 1
+      : Number(url.searchParams.get("page")) || 1;
+    const pageSize = Number(
+      url.searchParams.get(usesBackendPagingShape ? "size" : "pageSize")
+    ) || 4;
     const pagination = paginate(enrichRestaurants(location), page, pageSize);
+    const pagedData = buildPagedResponse(
+      enrichRestaurants(location).map(buildRestaurantDto),
+      usesBackendPagingShape ? Number(url.searchParams.get("page")) || 0 : page - 1,
+      pageSize
+    );
 
     return HttpResponse.json({
+      ...pagedData,
       restaurants: pagination.items,
       pagination: {
         page: pagination.page,

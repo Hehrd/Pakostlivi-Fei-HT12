@@ -136,8 +136,8 @@ export default function StripePaymentDialog({
             </h2>
             <p className="text-sm leading-7 text-foreground/66">
               Your reservation was created and is being held while you complete
-              payment. Once Stripe confirms the payment, the reservation will be
-              saved locally in your reservations view.
+              payment. Once Stripe confirms the payment, it will be available in
+              your reservations view.
             </p>
           </div>
           <button

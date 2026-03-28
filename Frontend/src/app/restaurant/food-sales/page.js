@@ -21,15 +21,18 @@ import {
   updateRestaurantFoodSale,
 } from "@/lib/restaurant-client";
 
-const EMPTY_FORM = {
+const EMPTY_FOOD_FORM = {
   title: "",
   description: "",
+  allergenIds: [],
+  foodTagIds: [],
+};
+
+const EMPTY_SALE_FORM = {
   price: "",
   quantity: "1",
   issuedAt: "",
   expiresAt: "",
-  allergenIds: [],
-  foodTagIds: [],
 };
 
 function Panel({ title, description, children, className = "" }) {
@@ -61,6 +64,22 @@ function MetricCard({ label, value, tone = "primary" }) {
       </p>
       <p className="mt-2 text-2xl font-semibold">{value}</p>
     </div>
+  );
+}
+
+function WorkspaceTabButton({ active, onClick, children }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full px-4 py-2.5 text-sm font-semibold transition-colors ${
+        active
+          ? "bg-primary text-white shadow-[0_10px_24px_rgba(31,143,87,0.18)]"
+          : "bg-white text-foreground/72 hover:bg-primary-soft/45"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -166,20 +185,29 @@ function toIsoString(value) {
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
 
-function buildFormStateFromFoodSale(foodSale) {
+function buildFoodFormStateFromFoodSale(foodSale) {
   if (!foodSale) {
-    return EMPTY_FORM;
+    return EMPTY_FOOD_FORM;
   }
 
   return {
     title: foodSale.title ?? "",
     description: foodSale.description ?? "",
+    allergenIds: Array.isArray(foodSale.allergenIds) ? foodSale.allergenIds : [],
+    foodTagIds: Array.isArray(foodSale.foodTagIds) ? foodSale.foodTagIds : [],
+  };
+}
+
+function buildSaleFormStateFromFoodSale(foodSale) {
+  if (!foodSale) {
+    return EMPTY_SALE_FORM;
+  }
+
+  return {
     price: String(foodSale.price ?? ""),
     quantity: foodSale.quantity ? String(foodSale.quantity) : "",
     issuedAt: toDateTimeLocalValue(foodSale.issuedAt),
     expiresAt: toDateTimeLocalValue(foodSale.expiresAt),
-    allergenIds: Array.isArray(foodSale.allergenIds) ? foodSale.allergenIds : [],
-    foodTagIds: Array.isArray(foodSale.foodTagIds) ? foodSale.foodTagIds : [],
   };
 }
 
@@ -202,7 +230,9 @@ export default function RestaurantFoodSalesPage() {
     foodTags: [],
   });
   const [formMode, setFormMode] = useState("create");
-  const [formState, setFormState] = useState(EMPTY_FORM);
+  const [foodForm, setFoodForm] = useState(EMPTY_FOOD_FORM);
+  const [saleForm, setSaleForm] = useState(EMPTY_SALE_FORM);
+  const [activeMobilePanel, setActiveMobilePanel] = useState("list");
   const [restaurantForm, setRestaurantForm] = useState({
     name: "",
     googleMapsUrl: "",
@@ -257,33 +287,40 @@ export default function RestaurantFoodSalesPage() {
     ) {
       setSelectedFoodSaleId(nextSelectedFoodSaleId);
       setFormMode("edit");
-      setFormState(
-        buildFormStateFromFoodSale(
-          nextFoodSales.find((foodSale) => foodSale.id === nextSelectedFoodSaleId)
-        )
+      setActiveMobilePanel("editor");
+      const nextFoodSale = nextFoodSales.find(
+        (foodSale) => foodSale.id === nextSelectedFoodSaleId
       );
+      setFoodForm(buildFoodFormStateFromFoodSale(nextFoodSale));
+      setSaleForm(buildSaleFormStateFromFoodSale(nextFoodSale));
       return;
     }
 
     setSelectedFoodSaleId(null);
     setFormMode("create");
-    setFormState(EMPTY_FORM);
+    setActiveMobilePanel("editor");
+    setFoodForm(EMPTY_FOOD_FORM);
+    setSaleForm(EMPTY_SALE_FORM);
   }
 
   function handleStartCreate() {
     setSelectedFoodSaleId(null);
     setFormMode("create");
-    setFormState(EMPTY_FORM);
+    setActiveMobilePanel("editor");
+    setFoodForm(EMPTY_FOOD_FORM);
+    setSaleForm(EMPTY_SALE_FORM);
   }
 
   function handleSelectFoodSale(foodSale) {
     setSelectedFoodSaleId(foodSale.id);
     setFormMode("edit");
-    setFormState(buildFormStateFromFoodSale(foodSale));
+    setActiveMobilePanel("editor");
+    setFoodForm(buildFoodFormStateFromFoodSale(foodSale));
+    setSaleForm(buildSaleFormStateFromFoodSale(foodSale));
   }
 
   function toggleOption(field, optionId) {
-    setFormState((current) => ({
+    setFoodForm((current) => ({
       ...current,
       [field]: current[field].includes(optionId)
         ? current[field].filter((item) => item !== optionId)
@@ -334,11 +371,7 @@ export default function RestaurantFoodSalesPage() {
 
           return ownedRestaurants[0]?.id ?? "";
         });
-        setApiNotice(
-          ownedRestaurants.length > 0
-            ? "Reservations are still read-only here until the backend exposes restaurant reservation queues."
-            : ""
-        );
+        setApiNotice("");
       } catch (error) {
         toast.error("Unable to load restaurant tools.", {
           description: error.message || "Please try again.",
@@ -412,28 +445,23 @@ export default function RestaurantFoodSalesPage() {
       return;
     }
 
-    if (!formState.title.trim()) {
-      toast.error("Food sale name is required.");
+    if (!foodForm.title.trim()) {
+      toast.error("Food name is required.");
       return;
     }
 
-    if (!formState.price || Number(formState.price) < 0) {
+    if (!saleForm.price || Number(saleForm.price) < 0) {
       toast.error("Enter a valid price.");
       return;
     }
 
-    if (formMode === "create" && (!formState.quantity || Number(formState.quantity) <= 0)) {
+    if (!saleForm.quantity || Number(saleForm.quantity) <= 0) {
       toast.error("Enter a valid quantity.");
       return;
     }
 
-    if (formMode === "edit" && (!formState.quantity || Number(formState.quantity) <= 0)) {
-      toast.error("Enter a valid quantity.");
-      return;
-    }
-
-    const issuedAt = toIsoString(formState.issuedAt);
-    const expiresAt = toIsoString(formState.expiresAt);
+    const issuedAt = toIsoString(saleForm.issuedAt);
+    const expiresAt = toIsoString(saleForm.expiresAt);
 
     if (issuedAt && expiresAt && new Date(expiresAt) <= new Date(issuedAt)) {
       toast.error("Pickup end must be after pickup start.");
@@ -447,27 +475,27 @@ export default function RestaurantFoodSalesPage() {
         formMode === "create"
           ? await createRestaurantFoodSale({
               restaurantId: selectedRestaurantId,
-              title: formState.title,
-              description: formState.description,
-              price: formState.price,
-              quantity: formState.quantity,
+              title: foodForm.title,
+              description: foodForm.description,
+              price: saleForm.price,
+              quantity: saleForm.quantity,
               issuedAt,
               expiresAt,
-              allergenIds: formState.allergenIds,
-              foodTagIds: formState.foodTagIds,
+              allergenIds: foodForm.allergenIds,
+              foodTagIds: foodForm.foodTagIds,
             })
           : await updateRestaurantFoodSale({
               restaurantId: selectedRestaurantId,
               saleId: selectedFoodSale?.saleId,
               foodId: selectedFoodSale?.foodId,
-              title: formState.title,
-              description: formState.description,
-              price: formState.price,
-              quantity: formState.quantity,
+              title: foodForm.title,
+              description: foodForm.description,
+              price: saleForm.price,
+              quantity: saleForm.quantity,
               issuedAt,
               expiresAt,
-              allergenIds: formState.allergenIds,
-              foodTagIds: formState.foodTagIds,
+              allergenIds: foodForm.allergenIds,
+              foodTagIds: foodForm.foodTagIds,
             });
 
       applyWorkspacePayload(
@@ -668,8 +696,30 @@ export default function RestaurantFoodSalesPage() {
           </section>
         ) : null}
 
+        <section className="rounded-[1.7rem] border border-border/75 bg-white/88 p-3 shadow-[0_18px_44px_rgba(17,51,34,0.06)] backdrop-blur-sm xl:hidden">
+          <div className="flex flex-wrap gap-2">
+            <WorkspaceTabButton
+              active={activeMobilePanel === "list"}
+              onClick={() => setActiveMobilePanel("list")}
+            >
+              Listings
+            </WorkspaceTabButton>
+            <WorkspaceTabButton
+              active={activeMobilePanel === "editor"}
+              onClick={() => setActiveMobilePanel("editor")}
+            >
+              Editor
+            </WorkspaceTabButton>
+          </div>
+          <p className="mt-3 text-sm leading-6 text-foreground/60">
+            Use Listings to pick a restaurant and choose an active sale. Switch to
+            Editor to update the restaurant or save a food sale.
+          </p>
+        </section>
+
         <div className="grid gap-6 xl:grid-cols-[0.88fr_1.12fr]">
           <Panel
+            className={activeMobilePanel !== "list" ? "hidden xl:block" : ""}
             title="Food sales list"
             description="Pick a restaurant first, then select an existing food sale to edit it. Use the create action when you want to start a new listing."
           >
@@ -683,22 +733,37 @@ export default function RestaurantFoodSalesPage() {
               </div>
             ) : (
               <div className="space-y-5">
-                <label className="space-y-2">
-                  <span className="text-sm font-semibold text-foreground">
-                    Restaurant workspace
-                  </span>
-                  <select
-                    value={selectedRestaurantId}
-                    onChange={(event) => setSelectedRestaurantId(event.target.value)}
-                    className="w-full rounded-2xl border border-border bg-surface-muted px-4 py-3 text-sm outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
-                  >
-                    {restaurants.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <span className="text-sm font-semibold text-foreground">
+                      Restaurant workspace
+                    </span>
+                    <p className="text-sm leading-6 text-foreground/60">
+                      Pick the active restaurant below.
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {restaurants.map((item) => {
+                      const isActive = item.id === selectedRestaurantId;
+
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => setSelectedRestaurantId(item.id)}
+                          className={`shrink-0 rounded-full border px-4 py-2.5 text-sm font-semibold transition-colors ${
+                            isActive
+                              ? "border-primary bg-primary text-white"
+                              : "border-border bg-white text-foreground/74"
+                          }`}
+                        >
+                          {item.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
                 <div className="rounded-[1.6rem] border border-border bg-surface-muted/60 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-4">
@@ -796,6 +861,7 @@ export default function RestaurantFoodSalesPage() {
           </Panel>
 
           <Panel
+            className={activeMobilePanel !== "editor" ? "hidden xl:block" : ""}
             title={selectedFoodSale ? "Edit food sale" : "Create food sale"}
             description={
               selectedFoodSale
@@ -937,155 +1003,184 @@ export default function RestaurantFoodSalesPage() {
                     ) : null}
                   </div>
 
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <label className="space-y-2 sm:col-span-2">
-                      <span className="text-sm font-semibold text-foreground">
-                        Food sale title
-                      </span>
-                      <input
-                        type="text"
-                        value={formState.title}
-                        onChange={(event) =>
-                          setFormState((current) => ({
-                            ...current,
-                            title: event.target.value,
-                          }))
-                        }
-                        placeholder="Smoked chicken bowls"
-                        className="w-full rounded-2xl border border-border bg-surface-muted px-4 py-3 text-sm outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
-                      />
-                    </label>
+                  <div className="rounded-[1.4rem] border border-border bg-surface-muted/65 p-4">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-foreground">
+                        Food details
+                      </p>
+                      <p className="text-sm leading-6 text-foreground/62">
+                        These fields map to the backend `Food` record.
+                      </p>
+                    </div>
 
-                    <label className="space-y-2 sm:col-span-2">
-                      <span className="text-sm font-semibold text-foreground">
-                        Description
-                      </span>
-                      <textarea
-                        rows={4}
-                        value={formState.description}
-                        onChange={(event) =>
-                          setFormState((current) => ({
-                            ...current,
-                            description: event.target.value,
-                          }))
-                        }
-                        placeholder="Short note about what customers will pick up."
-                        className="w-full rounded-[1.4rem] border border-border bg-surface-muted px-4 py-3 text-sm outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
-                      />
-                    </label>
+                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                      <label className="space-y-2 sm:col-span-2">
+                        <span className="text-sm font-semibold text-foreground">
+                          Food title
+                        </span>
+                        <input
+                          type="text"
+                          value={foodForm.title}
+                          onChange={(event) =>
+                            setFoodForm((current) => ({
+                              ...current,
+                              title: event.target.value,
+                            }))
+                          }
+                          placeholder="Smoked chicken bowls"
+                          className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
+                        />
+                      </label>
 
-                    <label className="space-y-2">
-                      <span className="text-sm font-semibold text-foreground">
-                        Price
-                      </span>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={formState.price}
-                        onChange={(event) =>
-                          setFormState((current) => ({
-                            ...current,
-                            price: event.target.value,
-                          }))
-                        }
-                        placeholder="0.00"
-                        className="w-full rounded-2xl border border-border bg-surface-muted px-4 py-3 text-sm outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
-                      />
-                    </label>
+                      <label className="space-y-2 sm:col-span-2">
+                        <span className="text-sm font-semibold text-foreground">
+                          Description
+                        </span>
+                        <textarea
+                          rows={4}
+                          value={foodForm.description}
+                          onChange={(event) =>
+                            setFoodForm((current) => ({
+                              ...current,
+                              description: event.target.value,
+                            }))
+                          }
+                          placeholder="Short note about what customers will pick up."
+                          className="w-full rounded-[1.4rem] border border-border bg-white px-4 py-3 text-sm outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
+                        />
+                      </label>
+                    </div>
 
-                    <label className="space-y-2">
-                      <span className="text-sm font-semibold text-foreground">
-                        Quantity
-                      </span>
-                      <input
-                        type="number"
-                        min="1"
-                        step="1"
-                        value={formState.quantity}
-                        onChange={(event) =>
-                          setFormState((current) => ({
-                            ...current,
-                            quantity: event.target.value,
-                          }))
-                        }
-                        placeholder="1"
-                        className="w-full rounded-2xl border border-border bg-surface-muted px-4 py-3 text-sm outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
-                      />
-                    </label>
+                    <div className="mt-4 space-y-3">
+                      <p className="text-sm font-semibold text-foreground">
+                        Allergens
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {options.allergens.map((allergen) => (
+                          <OptionChip
+                            key={allergen.id}
+                            active={foodForm.allergenIds.includes(allergen.id)}
+                            onClick={() => toggleOption("allergenIds", allergen.id)}
+                          >
+                            {allergen.label}
+                          </OptionChip>
+                        ))}
+                      </div>
+                    </div>
 
-                    <label className="space-y-2">
-                      <span className="text-sm font-semibold text-foreground">
-                        Pickup starts
-                      </span>
-                      <input
-                        type="datetime-local"
-                        value={formState.issuedAt}
-                        onChange={(event) =>
-                          setFormState((current) => ({
-                            ...current,
-                            issuedAt: event.target.value,
-                          }))
-                        }
-                        className="w-full rounded-2xl border border-border bg-surface-muted px-4 py-3 text-sm outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
-                      />
-                    </label>
-
-                    <label className="space-y-2">
-                      <span className="text-sm font-semibold text-foreground">
-                        Pickup ends
-                      </span>
-                      <input
-                        type="datetime-local"
-                        value={formState.expiresAt}
-                        onChange={(event) =>
-                          setFormState((current) => ({
-                            ...current,
-                            expiresAt: event.target.value,
-                          }))
-                        }
-                        className="w-full rounded-2xl border border-border bg-surface-muted px-4 py-3 text-sm outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
-                      />
-                    </label>
-                  </div>
-
-                  <div className="space-y-3">
-                    <p className="text-sm font-semibold text-foreground">
-                      Allergens
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {options.allergens.map((allergen) => (
-                        <OptionChip
-                          key={allergen.id}
-                          active={formState.allergenIds.includes(allergen.id)}
-                          onClick={() => toggleOption("allergenIds", allergen.id)}
-                        >
-                          {allergen.label}
-                        </OptionChip>
-                      ))}
+                    <div className="mt-4 space-y-3">
+                      <p className="text-sm font-semibold text-foreground">Food tags</p>
+                      <p className="text-sm leading-6 text-foreground/58">
+                        These are shown separately because they belong to the food
+                        record, even though the backend may still regenerate them.
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {options.foodTags.map((tag) => (
+                          <OptionChip
+                            key={tag.id}
+                            active={foodForm.foodTagIds.includes(tag.id)}
+                            onClick={() => toggleOption("foodTagIds", tag.id)}
+                          >
+                            {tag.label}
+                          </OptionChip>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="space-y-3">
-                    <p className="text-sm font-semibold text-foreground">Food tags</p>
-                    <div className="flex flex-wrap gap-2">
-                      {options.foodTags.map((tag) => (
-                        <OptionChip
-                          key={tag.id}
-                          active={formState.foodTagIds.includes(tag.id)}
-                          onClick={() => toggleOption("foodTagIds", tag.id)}
-                        >
-                          {tag.label}
-                        </OptionChip>
-                      ))}
+                  <div className="rounded-[1.4rem] border border-border bg-white p-4">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-foreground">
+                        Sale details
+                      </p>
+                      <p className="text-sm leading-6 text-foreground/62">
+                        These fields map to the backend `FoodSale` record.
+                      </p>
+                    </div>
+
+                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                      <label className="space-y-2">
+                        <span className="text-sm font-semibold text-foreground">
+                          Price
+                        </span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={saleForm.price}
+                          onChange={(event) =>
+                            setSaleForm((current) => ({
+                              ...current,
+                              price: event.target.value,
+                            }))
+                          }
+                          placeholder="0.00"
+                          className="w-full rounded-2xl border border-border bg-surface-muted px-4 py-3 text-sm outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
+                        />
+                      </label>
+
+                      <label className="space-y-2">
+                        <span className="text-sm font-semibold text-foreground">
+                          Quantity
+                        </span>
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={saleForm.quantity}
+                          onChange={(event) =>
+                            setSaleForm((current) => ({
+                              ...current,
+                              quantity: event.target.value,
+                            }))
+                          }
+                          placeholder="1"
+                          className="w-full rounded-2xl border border-border bg-surface-muted px-4 py-3 text-sm outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
+                        />
+                      </label>
+
+                      <label className="space-y-2">
+                        <span className="text-sm font-semibold text-foreground">
+                          Pickup starts
+                        </span>
+                        <input
+                          type="datetime-local"
+                          value={saleForm.issuedAt}
+                          onChange={(event) =>
+                            setSaleForm((current) => ({
+                              ...current,
+                              issuedAt: event.target.value,
+                            }))
+                          }
+                          className="w-full rounded-2xl border border-border bg-surface-muted px-4 py-3 text-sm outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
+                        />
+                      </label>
+
+                      <label className="space-y-2">
+                        <span className="text-sm font-semibold text-foreground">
+                          Pickup ends
+                        </span>
+                        <input
+                          type="datetime-local"
+                          value={saleForm.expiresAt}
+                          onChange={(event) =>
+                            setSaleForm((current) => ({
+                              ...current,
+                              expiresAt: event.target.value,
+                            }))
+                          }
+                          className="w-full rounded-2xl border border-border bg-surface-muted px-4 py-3 text-sm outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
+                        />
+                      </label>
                     </div>
                   </div>
 
                   {formMode === "edit" ? (
                     <div className="rounded-[1.4rem] border border-border bg-surface-muted px-4 py-4 text-sm leading-7 text-foreground/64">
                       Prices are entered here in EUR for humans, then sent to the
-                      backend in cents. This edit form updates the linked food and
-                      food-sale records together.
+                      backend in cents. Saving this screen still updates both
+                      linked records, but the form is now split so that the mapping
+                      is easier to follow.
                     </div>
                   ) : null}
 

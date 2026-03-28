@@ -63,6 +63,26 @@ function mapSelectedLabelsToOptions(selectedLabels, options, emptyMessage) {
   });
 }
 
+async function resolveProfileSelections(body = {}) {
+  const [allergenOptions, foodTagOptions] = await Promise.all([
+    request("/tags/allergens"),
+    request("/tags/food"),
+  ]);
+
+  return {
+    allergenTypes: mapSelectedLabelsToOptions(
+      body?.allergens,
+      allergenOptions,
+      "One or more selected allergens could not be matched."
+    ),
+    foodTagTypes: mapSelectedLabelsToOptions(
+      body?.preferredFoodTags ?? body?.foodTags,
+      foodTagOptions,
+      "One or more selected food tags could not be matched."
+    ),
+  };
+}
+
 async function refreshCurrentUser() {
   return getCurrentUser();
 }
@@ -81,6 +101,8 @@ export async function signup(body) {
   const normalizedProfilePictureUrl =
     body?.profilePictureUrl?.trim() ||
     buildDefaultProfilePictureUrl(body?.firstName, body?.lastName);
+  const resolvedSelections =
+    API_MODE === "mock" ? null : await resolveProfileSelections(body);
   const payload =
     API_MODE === "mock"
       ? {
@@ -101,6 +123,8 @@ export async function signup(body) {
           firstName: body?.firstName?.trim(),
           lastName: body?.lastName?.trim(),
           profilePictureUrl: normalizedProfilePictureUrl,
+          allergens: resolvedSelections?.allergenTypes ?? [],
+          foodTags: resolvedSelections?.foodTagTypes ?? [],
         };
 
   return request("/account/signup", {
@@ -177,17 +201,33 @@ export async function getFoodTags() {
 }
 
 export async function completeOnboarding(body) {
-  if (API_MODE !== "mock") {
-    throw {
-      status: 501,
-      message: "Onboarding updates are not available from the backend yet.",
-    };
+  if (API_MODE === "mock") {
+    return request("/account/onboarding", {
+      method: "POST",
+      body,
+    });
   }
 
-  return request("/account/onboarding", {
-    method: "POST",
-    body,
+  const [{ profile }, resolvedSelections] = await Promise.all([
+    getCurrentAccountAndProfile(),
+    resolveProfileSelections(body),
+  ]);
+
+  await request("/profiles", {
+    method: "PUT",
+    body: {
+      id: profile.id,
+      firstName: profile?.firstName ?? "",
+      lastName: profile?.lastName ?? "",
+      profilePictureUrl: profile?.profilePictureUrl ?? "",
+      allergenTypes: resolvedSelections.allergenTypes,
+      foodTagTypes: resolvedSelections.foodTagTypes,
+    },
   });
+
+  return {
+    user: await refreshCurrentUser(),
+  };
 }
 
 export async function updateUserAllergens(body) {

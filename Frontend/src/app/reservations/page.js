@@ -13,8 +13,7 @@ import {
   isRestaurantUser,
 } from "@/lib/auth-user";
 import {
-  getStoredReservations,
-  refreshStoredReservations,
+  fetchUserReservations,
 } from "@/lib/reservation-client";
 
 function formatDateTime(value) {
@@ -68,11 +67,11 @@ function ReservationCard({ reservation }) {
               {active ? "Current" : "Saved"}
             </span>
             <span className="rounded-full bg-primary-soft px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-              {reservation.status.replaceAll("_", " ")}
+              {(reservation.status ?? "UNPAID").replaceAll("_", " ")}
             </span>
           </div>
           <h2 className="text-xl font-semibold text-foreground">
-            {reservation.title}
+            {reservation.title || `Reservation #${reservation.id}`}
           </h2>
           <p className="text-sm text-foreground/64">
             {reservation.restaurantName || "Restaurant unavailable"}
@@ -92,7 +91,7 @@ function ReservationCard({ reservation }) {
             EUR {Number(reservation.totalPrice ?? reservation.price ?? 0).toFixed(2)}
           </p>
           <p className="text-xs text-foreground/52">
-            {reservation.paymentStatus}
+            {reservation.paymentStatus || "Payment status unavailable"}
           </p>
         </div>
       </div>
@@ -182,15 +181,14 @@ export default function ReservationsPage() {
 
   useEffect(() => {
     async function loadReservations() {
-      setReservations(getStoredReservations(user));
       setIsLoading(true);
 
       try {
-        const refreshedReservations = await refreshStoredReservations(user);
-        setReservations(refreshedReservations);
+        const payload = await fetchUserReservations();
+        setReservations(payload?.reservations ?? []);
       } catch (error) {
-        toast.error("Unable to refresh reservation details.", {
-          description: error.message || "Showing the last saved reservation data.",
+        toast.error("Unable to load reservation details.", {
+          description: error.message || "Please try again.",
         });
       } finally {
         setIsLoading(false);
@@ -237,8 +235,8 @@ export default function ReservationsPage() {
               </h1>
               <p className="max-w-2xl text-sm leading-7 text-white/80 sm:text-base">
                 Use this page as your reservation hub after checkout. Stripe
-                payment status is saved here together with your current meal
-                holds on this device.
+                payment progress and reservation holds are now loaded from your
+                backend reservation history.
               </p>
             </div>
           </section>
@@ -262,7 +260,7 @@ export default function ReservationsPage() {
               </div>
               <div className="rounded-[1.4rem] bg-surface-muted p-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground/55">
-                  Saved
+                  Total
                 </p>
                 <p className="mt-2 text-2xl font-semibold text-foreground">
                   {reservations.length}
@@ -270,8 +268,8 @@ export default function ReservationsPage() {
               </div>
             </div>
             <p className="mt-5 text-sm leading-7 text-foreground/62">
-              Reservations are currently tracked from this browser until the
-              backend exposes a full list endpoint for the signed-in user.
+              Reservation history on this page now comes directly from the
+              backend account endpoint.
             </p>
           </aside>
         </div>
@@ -317,11 +315,11 @@ export default function ReservationsPage() {
         <section className="rounded-[1.9rem] border border-border/75 bg-white/92 p-6 shadow-[0_22px_55px_rgba(17,51,34,0.07)] backdrop-blur-sm">
           <div className="space-y-2">
             <h2 className="text-2xl font-semibold tracking-[-0.03em] text-foreground">
-              Saved on this device
+              Older reservations
             </h2>
             <p className="text-sm leading-7 text-foreground/66">
-              Older reservation cards stay visible here so the flow still feels
-              complete before a proper backend reservation history endpoint exists.
+              Reservations that are no longer active stay grouped here once
+              their hold window has expired.
             </p>
           </div>
 
@@ -332,7 +330,7 @@ export default function ReservationsPage() {
               ))
             ) : (
               <div className="rounded-[1.6rem] border border-dashed border-border bg-surface-muted px-5 py-6 text-sm leading-7 text-foreground/64">
-                No older reservations saved on this device yet.
+                No older reservations yet.
               </div>
             )}
           </div>

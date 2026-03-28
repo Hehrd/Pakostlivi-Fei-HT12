@@ -66,7 +66,7 @@ export default function LoginPage() {
         queueRedirectToast({
           type: "success",
           title: "Login successful.",
-          description: "Finish onboarding to set your allergen preferences.",
+          description: "Finish onboarding to save your allergens and food tags.",
         });
 
         router.push("/onboarding");

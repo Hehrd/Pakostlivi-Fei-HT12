@@ -1,14 +1,19 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { queueRedirectToast } from "@/components/AppToaster";
 import AuthSubmitButton from "@/components/AuthSubmitButton";
-import { getAuthToastContent, signup } from "@/lib/auth-client";
+import {
+  getAllergens,
+  getAuthToastContent,
+  getFoodTags,
+  signup,
+} from "@/lib/auth-client";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -19,6 +24,11 @@ export default function SignUpPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [allergens, setAllergens] = useState([]);
+  const [foodTags, setFoodTags] = useState([]);
+  const [selectedAllergens, setSelectedAllergens] = useState([]);
+  const [selectedFoodTags, setSelectedFoodTags] = useState([]);
+  const [isLoadingPreferences, setIsLoadingPreferences] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   function buildProfilePictureUrl(nextFirstName, nextLastName) {
@@ -26,6 +36,36 @@ export default function SignUpPage() {
       `${nextFirstName} ${nextLastName}`.trim() || "Munchman User"
     );
     return `https://api.dicebear.com/9.x/initials/svg?seed=${seed}`;
+  }
+
+  useEffect(() => {
+    async function loadPreferenceOptions() {
+      try {
+        const [allergenPayload, foodTagPayload] = await Promise.all([
+          getAllergens(),
+          getFoodTags(),
+        ]);
+
+        setAllergens(allergenPayload?.allergens ?? []);
+        setFoodTags(foodTagPayload?.tags ?? []);
+      } catch (error) {
+        toast.error("Unable to load preference options.", {
+          description: error.message || "You can try refreshing the page.",
+        });
+      } finally {
+        setIsLoadingPreferences(false);
+      }
+    }
+
+    loadPreferenceOptions();
+  }, []);
+
+  function toggleSelection(value, currentValues, setter) {
+    setter(
+      currentValues.includes(value)
+        ? currentValues.filter((item) => item !== value)
+        : [...currentValues, value]
+    );
   }
 
   async function handleSubmit(event) {
@@ -69,6 +109,8 @@ export default function SignUpPage() {
         password,
         firstName: trimmedFirstName,
         lastName: trimmedLastName,
+        allergens: selectedAllergens,
+        foodTags: selectedFoodTags,
         profilePictureUrl: buildProfilePictureUrl(
           trimmedFirstName,
           trimmedLastName
@@ -78,7 +120,8 @@ export default function SignUpPage() {
       queueRedirectToast({
         type: "success",
         title: "Account created.",
-        description: "Log in with your new account to continue.",
+        description:
+          "Your allergens and food tags were saved with your account. Log in to continue.",
       });
 
       router.push("/login");
@@ -148,42 +191,9 @@ export default function SignUpPage() {
           className="relative z-10 max-w-[54rem] rounded-[2rem] border border-white/15 bg-white/10 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.12)] backdrop-blur-md"
         >
           <p className="text-sm leading-7 text-white/82">
-            Sign up once to browse offers, track payments, and make pickup
-            smoother for both you and local food providers.
+            Sign up once, choose your allergens and preferred food styles, and
+            arrive with a ready-to-use discovery profile.
           </p>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.28, ease: "easeOut" }}
-          className="pointer-events-none absolute right-10 top-24 z-10"
-        >
-          <motion.div
-            animate={{ y: [0, -10, 0] }}
-            transition={{ duration: 7, ease: "easeInOut", repeat: Infinity }}
-            className="rounded-[1.75rem] border border-white/20 bg-white/10 px-5 py-4 text-white shadow-[0_20px_45px_rgba(0,0,0,0.14)] backdrop-blur-md"
-          >
-            <p className="text-[11px] uppercase tracking-[0.25em] text-white/65">
-              New users today
-            </p>
-            <p className="mt-2 text-2xl font-semibold">248 joined</p>
-          </motion.div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.7, delay: 0.36, ease: "easeOut" }}
-          className="pointer-events-none absolute bottom-36 right-24 z-10"
-        >
-          <motion.div
-            animate={{ y: [0, -10, 0] }}
-            transition={{ duration: 9, ease: "easeInOut", repeat: Infinity }}
-            className="rounded-full border border-white/20 bg-white/10 px-5 py-3 text-sm font-medium text-white/88 shadow-[0_18px_40px_rgba(0,0,0,0.12)] backdrop-blur-md"
-          >
-            Preferences ready
-          </motion.div>
         </motion.div>
       </section>
 
@@ -192,7 +202,7 @@ export default function SignUpPage() {
           initial={{ opacity: 0, y: 24, scale: 0.985 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.65, delay: 0.15, ease: "easeOut" }}
-          className="relative w-full max-w-md rounded-[2rem] border border-white/70 bg-white/80 p-8 shadow-[0_24px_80px_rgba(17,51,34,0.10)] backdrop-blur-2xl xl:p-10"
+          className="relative w-full max-w-2xl rounded-[2rem] border border-white/70 bg-white/80 p-8 shadow-[0_24px_80px_rgba(17,51,34,0.10)] backdrop-blur-2xl xl:p-10"
         >
           <div className="pointer-events-none absolute inset-0 rounded-[2rem] ring-1 ring-black/5" />
 
@@ -207,132 +217,208 @@ export default function SignUpPage() {
               </h2>
 
               <p className="text-sm leading-7 text-foreground/68">
-                Set up your profile to reserve discounted meals and tailor your
-                browsing preferences.
+                Set up your profile and choose your allergen and food-tag
+                preferences as part of signup.
               </p>
             </div>
           </div>
 
-          <form className="relative space-y-5" onSubmit={handleSubmit}>
-            <label className="block space-y-2.5">
-              <span className="text-sm font-medium text-foreground/82">
-                First name
-              </span>
+          <form className="relative space-y-6" onSubmit={handleSubmit}>
+            <div className="grid gap-5 md:grid-cols-2">
+              <label className="block space-y-2.5">
+                <span className="text-sm font-medium text-foreground/82">
+                  First name
+                </span>
+                <input
+                  id="firstName"
+                  name="firstName"
+                  type="text"
+                  value={firstName}
+                  onChange={(event) => setFirstName(event.target.value)}
+                  placeholder="Anna"
+                  autoComplete="given-name"
+                  className="w-full rounded-2xl border border-border/80 bg-surface-muted/80 px-4 py-3.5 text-sm text-foreground outline-none placeholder:text-foreground/40 transition-all duration-200 focus:-translate-y-[1px] focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
+                />
+              </label>
 
-              <input
-                id="firstName"
-                name="firstName"
-                type="text"
-                value={firstName}
-                onChange={(event) => setFirstName(event.target.value)}
-                placeholder="Anna"
-                autoComplete="given-name"
-                className="w-full rounded-2xl border border-border/80 bg-surface-muted/80 px-4 py-3.5 text-sm text-foreground outline-none placeholder:text-foreground/40 transition-all duration-200 focus:-translate-y-[1px] focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
-              />
-            </label>
+              <label className="block space-y-2.5">
+                <span className="text-sm font-medium text-foreground/82">
+                  Last name
+                </span>
+                <input
+                  id="lastName"
+                  name="lastName"
+                  type="text"
+                  value={lastName}
+                  onChange={(event) => setLastName(event.target.value)}
+                  placeholder="Petrova"
+                  autoComplete="family-name"
+                  className="w-full rounded-2xl border border-border/80 bg-surface-muted/80 px-4 py-3.5 text-sm text-foreground outline-none placeholder:text-foreground/40 transition-all duration-200 focus:-translate-y-[1px] focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
+                />
+              </label>
 
-            <label className="block space-y-2.5">
-              <span className="text-sm font-medium text-foreground/82">
-                Last name
-              </span>
+              <label className="block space-y-2.5 md:col-span-2">
+                <span className="text-sm font-medium text-foreground/82">
+                  Email address
+                </span>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="foodlover@munchman.com"
+                  autoComplete="email"
+                  className="w-full rounded-2xl border border-border/80 bg-surface-muted/80 px-4 py-3.5 text-sm text-foreground outline-none placeholder:text-foreground/40 transition-all duration-200 focus:-translate-y-[1px] focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
+                />
+              </label>
 
-              <input
-                id="lastName"
-                name="lastName"
-                type="text"
-                value={lastName}
-                onChange={(event) => setLastName(event.target.value)}
-                placeholder="Petrova"
-                autoComplete="family-name"
-                className="w-full rounded-2xl border border-border/80 bg-surface-muted/80 px-4 py-3.5 text-sm text-foreground outline-none placeholder:text-foreground/40 transition-all duration-200 focus:-translate-y-[1px] focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
-              />
-            </label>
+              <label className="block space-y-2.5">
+                <span className="text-sm font-medium text-foreground/82">
+                  Password
+                </span>
+                <div className="rounded-2xl border border-border/80 bg-surface-muted/80 transition-all duration-200 focus-within:-translate-y-[1px] focus-within:border-primary focus-within:bg-white focus-within:ring-4 focus-within:ring-primary/10">
+                  <div className="flex items-center gap-3 px-4 py-1.5">
+                    <input
+                      id="password"
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      placeholder="Create your Munchman password"
+                      autoComplete="new-password"
+                      className="min-w-0 flex-1 bg-transparent py-2 text-sm text-foreground outline-none placeholder:text-foreground/40"
+                    />
 
-            <label className="block space-y-2.5">
-              <span className="text-sm font-medium text-foreground/82">
-                Email address
-              </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((value) => !value)}
+                      className="shrink-0 text-xs font-semibold uppercase tracking-[0.18em] text-primary transition-colors hover:text-primary-strong"
+                    >
+                      {showPassword ? "Hide" : "Show"}
+                    </button>
+                  </div>
+                </div>
+              </label>
 
-              <input
-                id="email"
-                name="email"
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="foodlover@munchman.com"
-                autoComplete="email"
-                className="w-full rounded-2xl border border-border/80 bg-surface-muted/80 px-4 py-3.5 text-sm text-foreground outline-none placeholder:text-foreground/40 transition-all duration-200 focus:-translate-y-[1px] focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
-              />
-            </label>
+              <label className="block space-y-2.5">
+                <span className="text-sm font-medium text-foreground/82">
+                  Confirm password
+                </span>
+                <div className="rounded-2xl border border-border/80 bg-surface-muted/80 transition-all duration-200 focus-within:-translate-y-[1px] focus-within:border-primary focus-within:bg-white focus-within:ring-4 focus-within:ring-primary/10">
+                  <div className="flex items-center gap-3 px-4 py-1.5">
+                    <input
+                      id="confirmPassword"
+                      name="confirmPassword"
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={confirmPassword}
+                      onChange={(event) => setConfirmPassword(event.target.value)}
+                      placeholder="Confirm your Munchman password"
+                      autoComplete="new-password"
+                      className="min-w-0 flex-1 bg-transparent py-2 text-sm text-foreground outline-none placeholder:text-foreground/40"
+                    />
 
-            <label className="block space-y-2.5">
-              <span className="text-sm font-medium text-foreground/82">
-                Password
-              </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword((value) => !value)}
+                      className="shrink-0 text-xs font-semibold uppercase tracking-[0.18em] text-primary transition-colors hover:text-primary-strong"
+                    >
+                      {showConfirmPassword ? "Hide" : "Show"}
+                    </button>
+                  </div>
+                </div>
+              </label>
+            </div>
 
-              <div className="rounded-2xl border border-border/80 bg-surface-muted/80 transition-all duration-200 focus-within:-translate-y-[1px] focus-within:border-primary focus-within:bg-white focus-within:ring-4 focus-within:ring-primary/10">
-                <div className="flex items-center gap-3 px-4 py-1.5">
-                  <input
-                    id="password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    placeholder="Create your Munchman password"
-                    autoComplete="new-password"
-                    className="min-w-0 flex-1 bg-transparent py-2 text-sm text-foreground outline-none placeholder:text-foreground/40"
-                  />
+            <div className="rounded-[1.7rem] border border-border/75 bg-surface-muted/55 p-5">
+              <div className="space-y-2">
+                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">
+                  Preferences
+                </p>
+                <p className="text-sm leading-7 text-foreground/68">
+                  The backend stores these during signup, so there is no need to
+                  collect them in a separate onboarding step afterward.
+                </p>
+              </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((value) => !value)}
-                    className="shrink-0 text-xs font-semibold uppercase tracking-[0.18em] text-primary transition-colors hover:text-primary-strong"
-                  >
-                    {showPassword ? "Hide" : "Show"}
-                  </button>
+              <div className="mt-5 space-y-5">
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-foreground">
+                    Allergens
+                  </p>
+                  {isLoadingPreferences ? (
+                    <p className="text-sm text-foreground/60">
+                      Loading preference options...
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {allergens.map((allergen) => (
+                        <button
+                          key={allergen.id}
+                          type="button"
+                          onClick={() =>
+                            toggleSelection(
+                              allergen.id,
+                              selectedAllergens,
+                              setSelectedAllergens
+                            )
+                          }
+                          className={`rounded-full border px-3.5 py-2 text-sm font-semibold transition-colors ${
+                            selectedAllergens.includes(allergen.id)
+                              ? "border-primary bg-primary text-white"
+                              : "border-border bg-white text-foreground/72 hover:border-primary/35 hover:bg-primary-soft/40"
+                          }`}
+                        >
+                          {allergen.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-foreground">
+                    Food tags you like
+                  </p>
+                  {isLoadingPreferences ? (
+                    <p className="text-sm text-foreground/60">
+                      Loading preference options...
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {foodTags.map((tag) => (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() =>
+                            toggleSelection(
+                              tag,
+                              selectedFoodTags,
+                              setSelectedFoodTags
+                            )
+                          }
+                          className={`rounded-full border px-3.5 py-2 text-sm font-semibold transition-colors ${
+                            selectedFoodTags.includes(tag)
+                              ? "border-primary bg-primary text-white"
+                              : "border-border bg-white text-foreground/72 hover:border-primary/35 hover:bg-primary-soft/40"
+                          }`}
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
-            </label>
-
-            <label className="block space-y-2.5">
-              <span className="text-sm font-medium text-foreground/82">
-                Confirm password
-              </span>
-
-              <div className="rounded-2xl border border-border/80 bg-surface-muted/80 transition-all duration-200 focus-within:-translate-y-[1px] focus-within:border-primary focus-within:bg-white focus-within:ring-4 focus-within:ring-primary/10">
-                <div className="flex items-center gap-3 px-4 py-1.5">
-                  <input
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
-                    value={confirmPassword}
-                    onChange={(event) => setConfirmPassword(event.target.value)}
-                    placeholder="Confirm your Munchman password"
-                    autoComplete="new-password"
-                    className="min-w-0 flex-1 bg-transparent py-2 text-sm text-foreground outline-none placeholder:text-foreground/40"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setShowConfirmPassword((value) => !value)
-                    }
-                    className="shrink-0 text-xs font-semibold uppercase tracking-[0.18em] text-primary transition-colors hover:text-primary-strong"
-                  >
-                    {showConfirmPassword ? "Hide" : "Show"}
-                  </button>
-                </div>
-              </div>
-            </label>
+            </div>
 
             <AuthSubmitButton
-              disabled={isSubmitting}
+              disabled={isSubmitting || isLoadingPreferences}
               isLoading={isSubmitting}
               loadingLabel="Creating account..."
             >
               Create account
             </AuthSubmitButton>
-
           </form>
 
           <div className="relative mt-7 flex items-center justify-between gap-3 border-t border-border/60 pt-6 text-sm text-foreground/68">

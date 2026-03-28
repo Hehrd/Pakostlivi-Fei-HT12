@@ -77,7 +77,7 @@ export default function SettingsPage() {
     useState(false);
   const isPreferenceWriteUnavailable = false;
   const isPasswordWriteUnavailable = API_MODE !== "mock";
-  const isStripeConnectUnavailable = API_MODE !== "real";
+  const isStripeConnectUnavailable = false;
   const isAdmin = isAdminUser(user);
   const isRestaurant = isRestaurantUser(user);
   const isClient = isClientUser(user);
@@ -410,8 +410,10 @@ export default function SettingsPage() {
                   </button>
                   <p className="text-sm text-foreground/62">
                     {isStripeConnectUnavailable
-                      ? "Stripe onboarding is only wired when the app is using the real backend."
-                      : "You will be redirected to Stripe to connect the restaurant account."}
+                      ? "Stripe onboarding is currently unavailable."
+                      : API_MODE === "mock"
+                        ? "Mock mode will simulate a connected Stripe account."
+                        : "You will be redirected to Stripe to connect the restaurant account."}
                   </p>
                 </div>
               </div>

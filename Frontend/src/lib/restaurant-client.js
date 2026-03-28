@@ -264,6 +264,13 @@ export async function fetchOwnerRestaurants() {
 }
 
 export async function startRestaurantStripeOnboarding() {
+  if (API_MODE === "mock") {
+    return {
+      url: null,
+      alreadyConnected: true,
+    };
+  }
+
   let response;
 
   try {
@@ -325,11 +332,11 @@ export async function startRestaurantStripeOnboarding() {
 }
 
 export async function updateOwnedRestaurant(body) {
-  if (API_MODE !== "real") {
-    throw {
-      status: 501,
-      message: "Restaurant updates are only wired for the real backend right now.",
-    };
+  if (API_MODE === "mock") {
+    return apiFetch("/restaurant/food-sales/restaurant", {
+      method: "PUT",
+      body,
+    });
   }
 
   const payload = await apiFetch("/restaurants", {
@@ -388,11 +395,11 @@ export async function fetchMyRestaurantFoodSales(restaurantId) {
 }
 
 export async function createRestaurantFoodSale(body) {
-  if (API_MODE !== "real") {
-    throw {
-      status: 501,
-      message: "Food sale creation is only wired for the real backend right now.",
-    };
+  if (API_MODE === "mock") {
+    return apiFetch("/restaurant/food-sales", {
+      method: "POST",
+      body,
+    });
   }
 
   const food = await apiFetch("/foods", {
@@ -425,11 +432,11 @@ export async function createRestaurantFoodSale(body) {
 }
 
 export async function updateRestaurantFoodSale(body) {
-  if (API_MODE !== "real") {
-    throw {
-      status: 501,
-      message: "Food sale updates are only wired for the real backend right now.",
-    };
+  if (API_MODE === "mock") {
+    return apiFetch(`/restaurant/food-sales/${body?.saleId}`, {
+      method: "PUT",
+      body,
+    });
   }
 
   await Promise.all([
@@ -464,11 +471,10 @@ export async function updateRestaurantFoodSale(body) {
 }
 
 export async function deleteRestaurantFoodSale(body) {
-  if (API_MODE !== "real") {
-    throw {
-      status: 501,
-      message: "Food sale deletion is only wired for the real backend right now.",
-    };
+  if (API_MODE === "mock") {
+    return apiFetch(`/restaurant/food-sales/${body?.saleId}`, {
+      method: "DELETE",
+    });
   }
 
   await apiFetch(`/food-sales/${body?.saleId}`, {
@@ -479,14 +485,10 @@ export async function deleteRestaurantFoodSale(body) {
 }
 
 export async function fetchFoodSaleReservations(foodSaleId) {
-  if (API_MODE !== "mock") {
-    throw {
-      status: 501,
-      message:
-        "Restaurant reservation lookup still needs a dedicated backend endpoint.",
-    };
+  if (API_MODE === "mock") {
+    return apiFetch(`/restaurant/food-sales/${foodSaleId}/reservations`);
   }
 
-  return apiFetch(`/restaurant/food-sales/${foodSaleId}/reservations`);
+  return apiFetch(`/reservations/by-food-sale/${foodSaleId}?page=0&size=50`);
 }
 
