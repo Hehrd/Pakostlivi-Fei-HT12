@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -23,6 +24,19 @@ AND r.longitude BETWEEN :minLng AND :maxLng
             double minLng,
             double maxLng,
             Pageable pageable
+    );
+
+    @Query("""
+SELECT r
+FROM RestaurantEntity r
+WHERE r.latitude BETWEEN :minLat AND :maxLat
+AND r.longitude BETWEEN :minLng AND :maxLng
+""")
+    List<RestaurantEntity> findInBoundingBox(
+            double minLat,
+            double maxLat,
+            double minLng,
+            double maxLng
     );
 
     Page<RestaurantEntity> findAllByOwner_Id(Long ownerId, Pageable pageable);

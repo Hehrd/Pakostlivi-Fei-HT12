@@ -32,7 +32,6 @@ public class RestaurantEmbeddingProjectionService {
             FoodEmbeddingDto foodDto = new FoodEmbeddingDto();
             foodDto.setFoodId(food.getId());
             foodDto.setName(food.getName());
-            foodDto.setDescription(food.getDescription());
 
             for (FoodTagEntity foodTag : food.getFoodTags()) {
                 foodDto.getTags().add(foodTag.getType().name());

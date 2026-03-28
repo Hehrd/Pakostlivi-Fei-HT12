@@ -5,10 +5,8 @@ import com.mischievous.fairies.controller.dtos.response.tag.AllergenResponseDTO;
 import com.mischievous.fairies.controller.dtos.response.tag.FoodTagResponseDTO;
 import com.mischievous.fairies.controller.dtos.response.user.UserProfileResDto;
 import com.mischievous.fairies.persistence.model.AllergenEntity;
-import com.mischievous.fairies.persistence.model.FoodEntity;
 import com.mischievous.fairies.persistence.model.FoodTagEntity;
 import com.mischievous.fairies.persistence.model.ProfileEntity;
-import com.mischievous.fairies.persistence.repository.AccountRepository;
 import com.mischievous.fairies.persistence.repository.AllergenRepository;
 import com.mischievous.fairies.persistence.repository.FoodTagRepository;
 import com.mischievous.fairies.persistence.repository.ProfileRepository;
@@ -21,13 +19,11 @@ import java.util.List;
 public class ProfileService {
     private final AllergenRepository allergenRepository;
     private final FoodTagRepository foodTagRepository;
-    private final AccountRepository accountRepository;
     private final ProfileRepository profileRepository;
 
-    public ProfileService(AccountRepository accountRepository, ProfileRepository profileRepository,
+    public ProfileService(ProfileRepository profileRepository,
                           AllergenRepository allergenRepository,
                           FoodTagRepository foodTagRepository) {
-        this.accountRepository = accountRepository;
         this.profileRepository = profileRepository;
         this.allergenRepository = allergenRepository;
         this.foodTagRepository = foodTagRepository;
@@ -35,8 +31,8 @@ public class ProfileService {
 
 
     public UserProfileResDto getUserProfileByAccountId(Long accountId) {
-        ProfileEntity profileEntity = accountRepository.findById(accountId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + accountId)).getProfile();
+        ProfileEntity profileEntity = profileRepository.findByAccount_Id(accountId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + accountId));
         List<AllergenResponseDTO> allergens = profileEntity.getAllergens().stream()
                 .map(allergen -> new AllergenResponseDTO(allergen.getId(), allergen.getType()))
                 .toList();

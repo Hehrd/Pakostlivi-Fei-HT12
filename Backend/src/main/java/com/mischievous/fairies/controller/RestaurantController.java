@@ -1,6 +1,7 @@
 package com.mischievous.fairies.controller;
 
 import com.mischievous.fairies.controller.dtos.request.restaurant.CreateRestaurantRequestDto;
+import com.mischievous.fairies.controller.dtos.request.restaurant.RecommendRestaurantsRequestDto;
 import com.mischievous.fairies.controller.dtos.request.restaurant.UpdateRestaurantRequestDto;
 import com.mischievous.fairies.controller.dtos.response.PagedResponse;
 import com.mischievous.fairies.controller.dtos.response.restaurant.RestaurantResponseDto;
@@ -12,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -68,6 +70,13 @@ public class RestaurantController {
         PagedResponse<RestaurantResponseDto> page = restaurantService.getNearbyRestaurants(lat, lng, radiusKm, pageable);
         return ResponseEntity.ok(page);
     }
+
+    @PostMapping("/recommend")
+    public ResponseEntity<List<RestaurantResponseDto>> recommendRestaurants(@Validated @RequestBody RecommendRestaurantsRequestDto request,
+                                                                            Authentication authentication) {
+        return ResponseEntity.ok(restaurantService.recommendNearbyRestaurants(request, authentication));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<RestaurantResponseDto> getRestaurantById(@PathVariable(name = "id") Long id) {
 

@@ -9,7 +9,6 @@ import java.util.List;
 public class FoodEmbeddingDto {
     private Long foodId;
     private String name;
-    private String description;
     private List<String> tags = new ArrayList<>();
     private List<String> allergens = new ArrayList<>();
 }
