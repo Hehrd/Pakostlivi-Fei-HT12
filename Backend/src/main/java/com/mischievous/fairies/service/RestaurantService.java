@@ -3,6 +3,7 @@ package com.mischievous.fairies.service;
 import com.mischievous.fairies.auth.filter.AuthenticatedUser;
 import com.mischievous.fairies.common.exceptions.RestaurantNotFoundException;
 import com.mischievous.fairies.controller.dtos.request.restaurant.CreateRestaurantRequestDto;
+import com.mischievous.fairies.controller.dtos.request.restaurant.RecommendRestaurantsRequestDto;
 import com.mischievous.fairies.controller.dtos.request.restaurant.UpdateRestaurantRequestDto;
 import com.mischievous.fairies.controller.dtos.response.PagedResponse;
 import com.mischievous.fairies.controller.dtos.response.restaurant.RestaurantResponseDto;
@@ -23,9 +24,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 
 @Service
 public class RestaurantService {
@@ -34,18 +33,21 @@ public class RestaurantService {
     private final StripeAccountRepository stripeAccountRepository;
     private final RestaurantRepository restaurantRepository;
     private final RestaurantEmbeddingRedisService restaurantEmbeddingRedisService;
+    private final RestaurantRecommendationClient restaurantRecommendationClient;
 
     @Autowired
     public RestaurantService(RestaurantRepository restaurantRepository,
                              StripeService stripeService,
                              AccountService accountService,
                              StripeAccountRepository stripeAccountRepository,
-                             RestaurantEmbeddingRedisService restaurantEmbeddingRedisService ) {
+                             RestaurantEmbeddingRedisService restaurantEmbeddingRedisService,
+                             RestaurantRecommendationClient restaurantRecommendationClient) {
         this.restaurantRepository = restaurantRepository;
         this.stripeService = stripeService;
         this.stripeAccountRepository = stripeAccountRepository;
         this.accountService = accountService;
         this.restaurantEmbeddingRedisService = restaurantEmbeddingRedisService;
+        this.restaurantRecommendationClient = restaurantRecommendationClient;
     }
 
     public RestaurantResponseDto createRestaurant(CreateRestaurantRequestDto request, Authentication authentication) {
@@ -72,8 +74,7 @@ public class RestaurantService {
         for (RestaurantEntity entity : entities.getContent()) {
             dtos.add(toResponseDto(entity));
         }
-        PagedResponse<RestaurantResponseDto> response = getPagedRes(dtos, entities);
-        return response;
+        return getPagedRes(dtos, entities);
     }
 
     public RestaurantResponseDto getRestaurantById(Long id) {
@@ -110,43 +111,24 @@ public class RestaurantService {
         restaurantEmbeddingRedisService.removeRestaurant(id);
     }
 
-    private RestaurantResponseDto toResponseDto(RestaurantEntity restaurant) {
-        RestaurantResponseDto dto = new RestaurantResponseDto();
-        dto.setId(restaurant.getId());
-        dto.setName(restaurant.getName());
-        dto.setGoogleMapsLink(restaurant.getGoogleMapsLink());
-        dto.setLongitude(restaurant.getLongitude());
-        dto.setLatitude(restaurant.getLatitude());
-        return dto;
-    }
+    public PagedResponse<RestaurantResponseDto> getNearbyRestaurants(double lat,
+                                                                     double lng,
+                                                                     double radiusKm,
+                                                                     Pageable pageable) {
+        NearbyBounds bounds = calculateNearbyBounds(lat, lng, radiusKm);
+        Page<RestaurantEntity> candidates = restaurantRepository.findInBoundingBox(
+                bounds.minLat(),
+                bounds.maxLat(),
+                bounds.minLng(),
+                bounds.maxLng(),
+                pageable
+        );
 
-    public PagedResponse<RestaurantResponseDto> getNearbyRestaurants(
-            double lat,
-            double lng,
-            double radiusKm,
-            Pageable pageable
-    ) {
-        // 1° latitude ≈ 111 km
-        double latRange = radiusKm / 111.0;
-        double lngRange = radiusKm / (111.0 * Math.cos(Math.toRadians(lat)));
+        List<RestaurantEntity> sorted = candidates.getContent().stream()
+                .sorted(Comparator.comparingDouble(restaurant ->
+                        distance(lat, lng, restaurant.getLatitude(), restaurant.getLongitude())))
+                .toList();
 
-        double minLat = lat - latRange;
-        double maxLat = lat + latRange;
-        double minLng = lng - lngRange;
-        double maxLng = lng + lngRange;
-
-        // Step 1: Get all candidates in the bounding box
-        Page<RestaurantEntity> candidates =
-                restaurantRepository.findInBoundingBox(minLat, maxLat, minLng, maxLng, pageable);
-
-        // Step 2: Sort candidates by exact distance
-        List<RestaurantEntity> sorted =
-                candidates.getContent().stream()
-                        .sorted(Comparator.comparingDouble(r ->
-                                distance(lat, lng, r.getLatitude(), r.getLongitude())))
-                        .toList();
-
-        // Step 3: Map to DTO and return paged response
         List<RestaurantResponseDto> dtos = new ArrayList<>();
         for (RestaurantEntity entity : sorted) {
             dtos.add(toResponseDto(entity));
@@ -154,32 +136,39 @@ public class RestaurantService {
         return getPagedRes(dtos, candidates);
     }
 
-    // Haversine formula to calculate distance in km
-
-    private double distance(double lat1, double lon1, double lat2, double lon2) {
-        double R = 6371; // Earth radius in km
-        double dLat = Math.toRadians(lat2 - lat1);
-        double dLon = Math.toRadians(lon2 - lon1);
-
-        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(Math.toRadians(lat1)) *
-                        Math.cos(Math.toRadians(lat2)) *
-                        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-
-        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    public List<Long> getNearbyRestaurantIds(double lat, double lng, double radiusKm) {
+        return findNearbyRestaurants(lat, lng, radiusKm).stream().map(RestaurantEntity::getId).toList();
     }
-    // Map Page<RestaurantEntity> to PagedResponse<RestaurantResponseDto>
 
+    public List<RestaurantResponseDto> recommendNearbyRestaurants(RecommendRestaurantsRequestDto request,
+                                                                  Authentication authentication) {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+        List<Long> nearbyRestaurantIds = getNearbyRestaurantIds(request.getLat(), request.getLng(), request.getRadiusKm());
+        if (nearbyRestaurantIds.isEmpty()) {
+            return List.of();
+        }
 
+        List<Long> rankedRestaurantIds = restaurantRecommendationClient.recommendRestaurants(
+                authenticatedUser.userId(),
+                nearbyRestaurantIds
+        );
+        if (rankedRestaurantIds.isEmpty()) {
+            return List.of();
+        }
 
-    private PagedResponse<RestaurantResponseDto> getPagedRes(List<RestaurantResponseDto> dtos, Page<RestaurantEntity> entities) {
-        PagedResponse<RestaurantResponseDto> response = new PagedResponse<>();
-        response.setData(dtos);
-        response.setPage(entities.getNumber());
-        response.setSize(entities.getSize());
-        response.setTotal(entities.getNumberOfElements());
-        response.setTotalPages(entities.getTotalPages());
-        return response;
+        Map<Long, RestaurantEntity> restaurantsById = new HashMap<>();
+        for (RestaurantEntity restaurant : restaurantRepository.findAllById(rankedRestaurantIds)) {
+            restaurantsById.put(restaurant.getId(), restaurant);
+        }
+
+        List<RestaurantResponseDto> recommendations = new ArrayList<>();
+        for (Long restaurantId : rankedRestaurantIds) {
+            RestaurantEntity restaurant = restaurantsById.get(restaurantId);
+            if (restaurant != null) {
+                recommendations.add(toResponseDto(restaurant));
+            }
+        }
+        return recommendations;
     }
 
     public PagedResponse<RestaurantResponseDto> getRestaurantsByOwnerId(Authentication authentication, Pageable pageable) {
@@ -207,8 +196,6 @@ public class RestaurantService {
             throw new AccessDeniedException("You are not allowed to access this resource");
         }
         Long userid = authenticatedUser.userId();
-//        AccountEntity account = accountRepository.findById(userid)
-//                .orElseThrow(() -> new UserNotExistingException("User with id: " + userid + " not found" ));
         RestaurantEntity restaurant = restaurantRepository.findByOwner_Id(userid)
                 .orElseThrow(() -> new RestaurantNotFoundException("Restaurant with owner id " + userid + " not found"));
         StripeAccountEntity stripeAccountEntity = restaurant.getStripeAccount();
@@ -225,6 +212,61 @@ public class RestaurantService {
         return createAccountLink(stripeAccount.getStripeAccountId());
     }
 
+    private RestaurantResponseDto toResponseDto(RestaurantEntity restaurant) {
+        RestaurantResponseDto dto = new RestaurantResponseDto();
+        dto.setId(restaurant.getId());
+        dto.setName(restaurant.getName());
+        dto.setGoogleMapsLink(restaurant.getGoogleMapsLink());
+        dto.setLongitude(restaurant.getLongitude());
+        dto.setLatitude(restaurant.getLatitude());
+        return dto;
+    }
+
+    private List<RestaurantEntity> findNearbyRestaurants(double lat, double lng, double radiusKm) {
+        NearbyBounds bounds = calculateNearbyBounds(lat, lng, radiusKm);
+
+        return restaurantRepository.findInBoundingBox(bounds.minLat(), bounds.maxLat(), bounds.minLng(), bounds.maxLng()).stream()
+                .filter(restaurant -> distance(lat, lng, restaurant.getLatitude(), restaurant.getLongitude()) <= radiusKm)
+                .sorted(Comparator.comparingDouble(restaurant ->
+                        distance(lat, lng, restaurant.getLatitude(), restaurant.getLongitude())))
+                .toList();
+    }
+
+    private NearbyBounds calculateNearbyBounds(double lat, double lng, double radiusKm) {
+        double latRange = radiusKm / 111.0;
+        double lngRange = radiusKm / (111.0 * Math.cos(Math.toRadians(lat)));
+
+        return new NearbyBounds(
+                lat - latRange,
+                lat + latRange,
+                lng - lngRange,
+                lng + lngRange
+        );
+    }
+
+    private double distance(double lat1, double lon1, double lat2, double lon2) {
+        double r = 6371;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(Math.toRadians(lat1)) *
+                        Math.cos(Math.toRadians(lat2)) *
+                        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+
+        return r * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    private PagedResponse<RestaurantResponseDto> getPagedRes(List<RestaurantResponseDto> dtos, Page<RestaurantEntity> entities) {
+        PagedResponse<RestaurantResponseDto> response = new PagedResponse<>();
+        response.setData(dtos);
+        response.setPage(entities.getNumber());
+        response.setSize(entities.getSize());
+        response.setTotal(entities.getNumberOfElements());
+        response.setTotalPages(entities.getTotalPages());
+        return response;
+    }
+
     private String createAccountLink(String accountId) throws StripeException {
         AccountLinkCreateParams params = AccountLinkCreateParams.builder()
                 .setAccount(accountId)
@@ -239,5 +281,8 @@ public class RestaurantService {
     private boolean isStripeAccountActive(String stripeAccountId) throws StripeException {
         Account account = Account.retrieve(stripeAccountId);
         return account.getChargesEnabled() && account.getPayoutsEnabled() && account.getDetailsSubmitted();
+    }
+
+    private record NearbyBounds(double minLat, double maxLat, double minLng, double maxLng) {
     }
 }
