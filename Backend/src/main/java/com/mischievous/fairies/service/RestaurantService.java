@@ -33,16 +33,19 @@ public class RestaurantService {
     private final StripeService stripeService;
     private final StripeAccountRepository stripeAccountRepository;
     private final RestaurantRepository restaurantRepository;
+    private final RestaurantEmbeddingRedisService restaurantEmbeddingRedisService;
 
     @Autowired
     public RestaurantService(RestaurantRepository restaurantRepository,
                              StripeService stripeService,
                              AccountService accountService,
-                             StripeAccountRepository stripeAccountRepository ) {
+                             StripeAccountRepository stripeAccountRepository,
+                             RestaurantEmbeddingRedisService restaurantEmbeddingRedisService ) {
         this.restaurantRepository = restaurantRepository;
         this.stripeService = stripeService;
         this.stripeAccountRepository = stripeAccountRepository;
         this.accountService = accountService;
+        this.restaurantEmbeddingRedisService = restaurantEmbeddingRedisService;
     }
 
     public RestaurantResponseDto createRestaurant(CreateRestaurantRequestDto request, Authentication authentication) {
@@ -58,7 +61,9 @@ public class RestaurantService {
         restaurant.setLongitude(restaurantCreateData.getLongitude());
         restaurant.setLatitude(restaurantCreateData.getLatitude());
         restaurant.setOwner(account);
-        return toResponseDto(restaurantRepository.save(restaurant));
+        RestaurantEntity savedRestaurant = restaurantRepository.save(restaurant);
+        restaurantEmbeddingRedisService.refreshRestaurant(savedRestaurant.getId());
+        return toResponseDto(savedRestaurant);
     }
 
     public PagedResponse<RestaurantResponseDto> getAllRestaurants(Pageable pageable) {
@@ -89,7 +94,9 @@ public class RestaurantService {
         existingRestaurant.setGoogleMapsLink(request.getGoogleMapsLink());
         existingRestaurant.setLongitude(request.getLongitude());
         existingRestaurant.setLatitude(request.getLatitude());
-        return toResponseDto(restaurantRepository.save(existingRestaurant));
+        RestaurantEntity updatedRestaurant = restaurantRepository.save(existingRestaurant);
+        restaurantEmbeddingRedisService.refreshRestaurant(updatedRestaurant.getId());
+        return toResponseDto(updatedRestaurant);
     }
 
     public void deleteRestaurant(Long id, Authentication authentication) {
@@ -100,6 +107,7 @@ public class RestaurantService {
         RestaurantEntity existingRestaurant = restaurantRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Restaurant not found with id: " + id));
         restaurantRepository.delete(existingRestaurant);
+        restaurantEmbeddingRedisService.removeRestaurant(id);
     }
 
     private RestaurantResponseDto toResponseDto(RestaurantEntity restaurant) {
