@@ -9,6 +9,6 @@ public class PagedResponse<T> {
     private List<T> data;
     private int page;
     private int size;
-    private int total;
-    private int totalPages;
+    private long total;
+    private long totalPages;
 }

@@ -15,6 +15,9 @@ public class ReservationEntity {
     private Long id;
 
     @Column
+    private int accessCode;
+
+    @Column
     private int quantity;
 
     @Column(nullable = false)

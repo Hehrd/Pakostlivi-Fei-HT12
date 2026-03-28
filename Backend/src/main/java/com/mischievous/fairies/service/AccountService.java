@@ -10,14 +10,19 @@ import com.mischievous.fairies.controller.dtos.response.tag.FoodTagResponseDTO;
 import com.mischievous.fairies.controller.dtos.response.user.UserProfileResDto;
 import com.mischievous.fairies.controller.dtos.response.user.UserResLogInDTO;
 import com.mischievous.fairies.persistence.model.AccountEntity;
+import com.mischievous.fairies.persistence.model.AllergenEntity;
+import com.mischievous.fairies.persistence.model.FoodTagEntity;
 import com.mischievous.fairies.persistence.model.ProfileEntity;
 import com.mischievous.fairies.persistence.repository.AccountRepository;
+import com.mischievous.fairies.persistence.repository.AllergenRepository;
+import com.mischievous.fairies.persistence.repository.FoodTagRepository;
 import com.mischievous.fairies.persistence.status.AccountRole;
 import lombok.Data;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -28,15 +33,21 @@ public class AccountService {
     private final AccountRepository accountRepository;
     private final JwtService jwtService;
     private final BCryptPasswordEncoder passwordEncoder;
+    private final AllergenRepository allergenRepository;
+    private final FoodTagRepository foodTagRepository;
 
     public AccountService(
             AccountRepository accountRepository,
             JwtService jwtService,
-            BCryptPasswordEncoder passwordEncoder
+            BCryptPasswordEncoder passwordEncoder,
+            AllergenRepository allergenRepository,
+            FoodTagRepository foodTagRepository
     ) {
         this.accountRepository = accountRepository;
         this.jwtService = jwtService;
         this.passwordEncoder = passwordEncoder;
+        this.allergenRepository = allergenRepository;
+        this.foodTagRepository = foodTagRepository;
     }
 
     public AccountEntity signUp(SignUpReqDTO signUpReqDTO, AccountRole role) throws EmailAlreadyInUseException {
@@ -52,6 +63,9 @@ public class AccountService {
         profileEntity.setFirstname(signUpReqDTO.getFirstName());
         profileEntity.setLastname(signUpReqDTO.getLastName());
         profileEntity.setProfilePictureUrl(signUpReqDTO.getProfilePictureUrl());
+        profileEntity.setAllergens(getAllergenEntities(signUpReqDTO.getAllergens()));
+        profileEntity.setFoodTags(getFoodTagEntities(signUpReqDTO.getFoodTags()));
+
 
         accountEntity.setProfile(profileEntity);
         profileEntity.setAccount(accountEntity);
@@ -94,6 +108,25 @@ public class AccountService {
         jwtService.revokeRefreshToken(refreshToken);
     }
 
+    private List<AllergenEntity> getAllergenEntities(List<AllergenResponseDTO> allergens) {
+        List<AllergenEntity> allergenEntities = new ArrayList<>();
+        for (AllergenResponseDTO allergen : allergens) {
+            AllergenEntity allergenEntity = allergenRepository.findById(allergen.getId())
+                    .orElseThrow(() -> new IllegalArgumentException("Allergen not found with id: " + allergen.getId()));
+            allergenEntities.add(allergenEntity);
+        }
+        return allergenEntities;
+    }
+
+    private List<FoodTagEntity> getFoodTagEntities(List<FoodTagResponseDTO> foodTags) {
+        List<FoodTagEntity> foodTagEntities = new ArrayList<>();
+        for (FoodTagResponseDTO foodTag : foodTags) {
+            FoodTagEntity foodTagEntity = foodTagRepository.findById(foodTag.getId())
+                    .orElseThrow(() -> new IllegalArgumentException("FoodTag not found with id: " + foodTag.getId()));
+            foodTagEntities.add(foodTagEntity);
+        }
+        return foodTagEntities;
+    }
 
     @Data
     public class LoginAuth {

@@ -11,4 +11,7 @@ import lombok.NoArgsConstructor;
 public class SaveReservationReqDTO {
     @NotNull
     private Long foodSaleId;
+
+    @NotNull
+    private int quantity;
 }

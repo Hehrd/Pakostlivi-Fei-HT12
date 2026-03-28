@@ -1,9 +1,14 @@
 package com.mischievous.fairies.controller.dtos.request.user;
 
+import com.mischievous.fairies.controller.dtos.response.tag.AllergenResponseDTO;
+import com.mischievous.fairies.controller.dtos.response.tag.FoodTagResponseDTO;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+
+import java.util.List;
 
 @Data
 public class SignUpReqDTO {
@@ -25,5 +30,11 @@ public class SignUpReqDTO {
 
     @NotBlank
     private String profilePictureUrl;
+
+    @NotNull
+    private List<AllergenResponseDTO> allergens;
+
+    @NotNull
+    private List<FoodTagResponseDTO> foodTags;
 
 }
