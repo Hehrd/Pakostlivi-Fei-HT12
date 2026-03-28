@@ -11,6 +11,8 @@ import java.time.Instant;
 @NoArgsConstructor
 public class GetReservationDTO {
     private long reservationId;
+    private int quantity;
+    private int accessCode;
     private Instant issued_at;
     private Instant expires_at;
 }

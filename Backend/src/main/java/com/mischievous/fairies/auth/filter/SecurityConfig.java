@@ -28,6 +28,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/stripe/webhook",
+                                "/tags/**",
                                 "/v3/**",
                                 "/swagger-ui/*",
                                 "/account/signup",
