@@ -13,7 +13,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/reservations")
+@RequestMapping("/v1/reservations")
 public class ReservationController {
     private final ReservationService reservationService;
     private final JwtService jwtService;

@@ -23,8 +23,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+
+import static java.util.Objects.isNull;
 
 @Service
 public class AccountService {
@@ -109,6 +112,10 @@ public class AccountService {
     }
 
     private List<AllergenEntity> getAllergenEntities(List<AllergenResponseDTO> allergens) {
+        if (isNull(allergens)) {
+            return Collections.emptyList();
+        }
+
         List<AllergenEntity> allergenEntities = new ArrayList<>();
         for (AllergenResponseDTO allergen : allergens) {
             AllergenEntity allergenEntity = allergenRepository.findById(allergen.getId())
@@ -119,6 +126,10 @@ public class AccountService {
     }
 
     private List<FoodTagEntity> getFoodTagEntities(List<FoodTagResponseDTO> foodTags) {
+        if (isNull(foodTags)) {
+            return Collections.emptyList();
+        }
+
         List<FoodTagEntity> foodTagEntities = new ArrayList<>();
         for (FoodTagResponseDTO foodTag : foodTags) {
             FoodTagEntity foodTagEntity = foodTagRepository.findById(foodTag.getId())

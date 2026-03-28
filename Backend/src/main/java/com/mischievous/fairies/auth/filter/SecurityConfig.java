@@ -27,14 +27,14 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/stripe/webhook",
-                                "/tags/**",
+                        .requestMatchers("/v1/stripe/webhook",
+                                "/v1/tags/**",
                                 "/v3/**",
                                 "/swagger-ui/*",
-                                "/account/signup",
-                                "/account/login",
-                                "/account/logout",
-                                "/token/refresh"
+                                "/v1/account/signup",
+                                "/v1/account/login",
+                                "/v1/account/logout",
+                                "/v1/token/refresh"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

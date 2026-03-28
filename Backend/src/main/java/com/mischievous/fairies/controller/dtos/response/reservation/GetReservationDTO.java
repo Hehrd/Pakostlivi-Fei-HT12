@@ -12,7 +12,7 @@ import java.time.Instant;
 public class GetReservationDTO {
     private long reservationId;
     private int quantity;
-    private int accessCode;
+    private String accessCode;
     private Instant issued_at;
     private Instant expires_at;
 }

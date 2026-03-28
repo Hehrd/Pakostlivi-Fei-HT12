@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/account")
+@RequestMapping("/v1/account")
 public class UserAccountController {
 
     private final AccountService accountService;

@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/tags")
+@RequestMapping("/v1/tags")
 public class TagController {
     private final TagService tagService;
 

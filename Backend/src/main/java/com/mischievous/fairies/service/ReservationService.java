@@ -152,6 +152,8 @@ public class ReservationService {
         getReservationDTO.setReservationId(reservationEntity.getId());
         getReservationDTO.setIssued_at(reservationEntity.getIssuedAt());
         getReservationDTO.setExpires_at(reservationEntity.getExpiresAt());
+        getReservationDTO.setQuantity(reservationEntity.getQuantity());
+        getReservationDTO.setAccessCode(reservationEntity.getAccessCode());
         return getReservationDTO;
     }
 }

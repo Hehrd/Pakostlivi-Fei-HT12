@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/food-sales")
+@RequestMapping("/v1/food-sales")
 public class FoodSaleController {
     private final FoodSaleService foodSaleService;
 

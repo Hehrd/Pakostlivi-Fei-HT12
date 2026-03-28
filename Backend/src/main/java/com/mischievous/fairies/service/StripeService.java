@@ -27,6 +27,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
+import java.util.Random;
 import java.util.UUID;
 
 @Service
@@ -35,6 +36,7 @@ public class StripeService {
     private final String WEBHOOK_SECRET;
     private static final long MIN_AMOUNT = 1L;
     private static final long MUNCHMAN_CUT_PERCENTAGE = 5L;
+
 
     private final StripeAccountRepository stripeAccountRepository;
     private final RestaurantRepository restaurantRepository;
@@ -118,6 +120,7 @@ public class StripeService {
 
         PaymentIntent paymentIntent = PaymentIntent.create(params);
         reservationEntity.setPaymentIntentId(paymentIntent.getId());
+        reservationEntity.setAccessCode(UUID.randomUUID().toString());
         reservationRepository.save(reservationEntity);
         return paymentIntent.getClientSecret();
     }
