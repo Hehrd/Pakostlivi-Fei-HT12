@@ -176,6 +176,33 @@ async function fetchNearbyRestaurantRecords(params) {
   };
 }
 
+async function fetchRecommendedRestaurantRecords(params) {
+  const payload = await apiFetch("/restaurants/recommend", {
+    method: "POST",
+    body: JSON.stringify({
+      lat: Number(params?.lat ?? 0),
+      lng: Number(params?.lng ?? 0),
+      radiusKm: Number(params?.radius ?? DEFAULT_RADIUS_KM),
+    }),
+  });
+
+  const restaurants = Array.isArray(payload) ? payload : [];
+  const normalizedRestaurants = normalizeRestaurantsWithDistance(
+    restaurants,
+    params
+  );
+
+  return {
+    restaurants: normalizedRestaurants,
+    pagination: {
+      page: 1,
+      pageSize: normalizedRestaurants.length,
+      totalItems: normalizedRestaurants.length,
+      totalPages: 1,
+    },
+  };
+}
+
 async function fetchFoodLookups() {
   const [foodTagsPayload, allergensPayload] = await Promise.all([
     apiFetch("/tags/food"),
@@ -202,7 +229,15 @@ async function fetchFoodLookups() {
 }
 
 async function fetchRealRestaurantsWithCounts(params) {
-  const { restaurants, pagination } = await fetchNearbyRestaurantRecords(params);
+  let restaurantPayload;
+
+  try {
+    restaurantPayload = await fetchRecommendedRestaurantRecords(params);
+  } catch {
+    restaurantPayload = await fetchNearbyRestaurantRecords(params);
+  }
+
+  const { restaurants, pagination } = restaurantPayload;
 
   const restaurantsWithCounts = await Promise.all(
     restaurants.map(async (restaurant) => {

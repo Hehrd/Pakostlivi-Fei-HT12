@@ -9,7 +9,13 @@ export const AUTH_EXPIRED_EVENT = "auth:expired";
 let refreshRequestPromise = null;
 
 function buildUrl(path) {
-  return `${API_BASE_URL}${path}`;
+  const normalizedPath = path.startsWith("/v1/")
+    ? path
+    : path.startsWith("/")
+      ? `/v1${path}`
+      : `/v1/${path}`;
+
+  return `${API_BASE_URL}${normalizedPath}`;
 }
 
 function getMockAuthHeaders() {

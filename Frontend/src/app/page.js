@@ -992,15 +992,15 @@ export default function HomePage() {
           <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
             <div className="space-y-2">
               <span className="inline-flex rounded-full border border-primary/20 bg-primary-soft px-4 py-1.5 text-sm font-medium text-primary">
-                Nearby Restaurants
+                Recommended Restaurants
               </span>
               <div className="space-y-1">
                 <h1 className="text-3xl font-semibold leading-tight text-foreground sm:text-4xl">
                   Rescue meals around you
                 </h1>
                 <p className="max-w-2xl text-sm leading-7 text-foreground/68 sm:text-base">
-                  Browse nearby restaurants on the map, then open their active
-                  surplus food sales from the panels on the right.
+                  Browse recommended restaurants near you on the map, then open
+                  their active surplus food sales from the panels on the right.
                 </p>
               </div>
             </div>
@@ -1036,7 +1036,7 @@ export default function HomePage() {
               <div className="flex min-w-max gap-2">
               {isRestaurantsLoading ? (
                 <span className="text-sm text-foreground/60">
-                  Loading nearby restaurants...
+                  Loading restaurant recommendations...
                 </span>
               ) : (
                 restaurants.map((restaurant) => (
