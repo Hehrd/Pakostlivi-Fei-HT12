@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -22,7 +23,7 @@ export default function SignUpPage() {
 
   function buildProfilePictureUrl(nextFirstName, nextLastName) {
     const seed = encodeURIComponent(
-      `${nextFirstName} ${nextLastName}`.trim() || "MunchMun User"
+      `${nextFirstName} ${nextLastName}`.trim() || "Munchman User"
     );
     return `https://api.dicebear.com/9.x/initials/svg?seed=${seed}`;
   }
@@ -108,7 +109,14 @@ export default function SignUpPage() {
           transition={{ duration: 0.55, ease: "easeOut" }}
           className="relative z-10 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-sm font-semibold uppercase tracking-[0.3em] shadow-[0_10px_35px_rgba(0,0,0,0.12)] backdrop-blur-md"
         >
-          MM
+          <Image
+            src="/logo.png"
+            alt="Munchman logo"
+            width={44}
+            height={44}
+            className="h-full w-full rounded-2xl object-cover"
+            priority
+          />
         </motion.div>
 
         <motion.div
@@ -118,7 +126,7 @@ export default function SignUpPage() {
           className="relative z-10 max-w-xl space-y-7"
         >
           <p className="text-sm uppercase tracking-[0.32em] text-white/72">
-            Join MunchMun
+            Join Munchman
           </p>
 
           <div className="space-y-5">
@@ -195,7 +203,7 @@ export default function SignUpPage() {
 
             <div className="space-y-3">
               <h2 className="text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-foreground">
-                Create your MunchMun account.
+                Create your Munchman account.
               </h2>
 
               <p className="text-sm leading-7 text-foreground/68">
@@ -251,7 +259,7 @@ export default function SignUpPage() {
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                placeholder="foodlover@munchmun.com"
+                placeholder="foodlover@munchman.com"
                 autoComplete="email"
                 className="w-full rounded-2xl border border-border/80 bg-surface-muted/80 px-4 py-3.5 text-sm text-foreground outline-none placeholder:text-foreground/40 transition-all duration-200 focus:-translate-y-[1px] focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
               />
@@ -270,7 +278,7 @@ export default function SignUpPage() {
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
-                    placeholder="Create your MunchMun password"
+                    placeholder="Create your Munchman password"
                     autoComplete="new-password"
                     className="min-w-0 flex-1 bg-transparent py-2 text-sm text-foreground outline-none placeholder:text-foreground/40"
                   />
@@ -299,7 +307,7 @@ export default function SignUpPage() {
                     type={showConfirmPassword ? "text" : "password"}
                     value={confirmPassword}
                     onChange={(event) => setConfirmPassword(event.target.value)}
-                    placeholder="Confirm your MunchMun password"
+                    placeholder="Confirm your Munchman password"
                     autoComplete="new-password"
                     className="min-w-0 flex-1 bg-transparent py-2 text-sm text-foreground outline-none placeholder:text-foreground/40"
                   />

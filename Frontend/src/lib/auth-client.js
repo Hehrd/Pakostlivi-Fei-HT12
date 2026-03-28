@@ -7,7 +7,7 @@ async function request(path, options = {}) {
 
 function buildDefaultProfilePictureUrl(firstName = "", lastName = "") {
   const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
-  const seed = encodeURIComponent(fullName || "MunchMun User");
+  const seed = encodeURIComponent(fullName || "Munchman User");
 
   return `https://api.dicebear.com/9.x/initials/svg?seed=${seed}`;
 }

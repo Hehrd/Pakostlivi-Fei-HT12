@@ -1,11 +1,11 @@
-import { API_MODE, apiFetch } from "@/lib/api";
+import { API_MODE, apiFetch, apiRequest } from "@/lib/api";
 import {
   formatEnumLabel,
   normalizePagedPayload,
   normalizeRestaurantRecord,
 } from "@/lib/backend-normalizers";
 import { centsToCurrencyValue, currencyValueToCents } from "@/lib/price";
-import { API_BASE_URL, AUTH_USER_STORAGE_KEY } from "@/lib/api";
+import { AUTH_USER_STORAGE_KEY } from "@/lib/api";
 
 function formatPickupWindow(issuedAt, expiresAt) {
   const formatter = new Intl.DateTimeFormat("en-GB", {
@@ -267,19 +267,14 @@ export async function startRestaurantStripeOnboarding() {
   let response;
 
   try {
-    response = await fetch(`${API_BASE_URL}/restaurants/onboard`, {
+    response = await apiRequest("/restaurants/onboard", {
       method: "POST",
-      credentials: "include",
       headers: {
         ...getMockRestaurantHeaders(),
       },
     });
-  } catch {
-    throw {
-      status: 0,
-      message:
-        "The backend could not be reached. Make sure the Java server is running and CORS allows this frontend.",
-    };
+  } catch (error) {
+    throw error;
   }
 
   const { url: onboardingUrl, message } = await extractOnboardingResponse(

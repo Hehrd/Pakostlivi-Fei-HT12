@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -97,7 +98,7 @@ export default function SettingsPage() {
     ? "Security and profile details live here. Customer food preferences stay hidden for admin accounts."
     : isRestaurant
       ? "Update your account details here. Meal discovery preferences stay out of the way for restaurant-owner accounts."
-      : "Update your password, allergen exclusions, and the food styles you want MunchMun to surface more often.";
+      : "Update your password, allergen exclusions, and the food styles you want Munchman to surface more often.";
   const backHref = isAdmin
     ? "/admin/restaurants"
     : isRestaurant
@@ -349,8 +350,18 @@ export default function SettingsPage() {
               Profile
             </p>
             <div className="mt-4 flex items-center gap-4">
-              <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft text-xl font-bold text-primary">
-                {profileInitials || "MM"}
+              <div className="inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-primary-soft text-xl font-bold text-primary">
+                {profileInitials ? (
+                  profileInitials
+                ) : (
+                  <Image
+                    src="/logo.png"
+                    alt="Munchman logo"
+                    width={64}
+                    height={64}
+                    className="h-full w-full object-cover"
+                  />
+                )}
               </div>
               <div className="space-y-1">
                 <p className="text-xl font-semibold text-foreground">
@@ -360,7 +371,7 @@ export default function SettingsPage() {
                 <p className="text-sm text-foreground/56">{roleLabel}</p>
                 {isClient ? (
                   <p className="text-sm text-foreground/56">
-                    Wallet balance: {Number(user.walletBalance ?? 0).toFixed(2)} lv
+                    Wallet balance: EUR {Number(user.walletBalance ?? 0).toFixed(2)}
                   </p>
                 ) : null}
               </div>

@@ -1,6 +1,6 @@
 ﻿import { apiFetch } from "@/lib/api";
 
-const RESERVATION_STORAGE_KEY = "munchmun-reservations";
+const RESERVATION_STORAGE_KEY = "munchman-reservations";
 
 function canUseStorage() {
   return typeof window !== "undefined" && Boolean(window.localStorage);

@@ -100,7 +100,7 @@ function FoodSaleCard({ foodSale, isSelected, onSelect }) {
           </p>
         </div>
         <span className="rounded-full bg-white/90 px-3 py-1 text-sm font-semibold text-primary">
-          {foodSale.price.toFixed(2)} lv
+          EUR {foodSale.price.toFixed(2)}
         </span>
       </div>
 
@@ -668,10 +668,10 @@ export default function RestaurantFoodSalesPage() {
           </section>
         ) : null}
 
-        <div className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
+        <div className="grid gap-6 xl:grid-cols-[0.88fr_1.12fr]">
           <Panel
-            title="Workspace"
-            description="Choose which owned restaurant you want to publish food sales for, then switch between creating a new food sale and editing an existing one."
+            title="Food sales list"
+            description="Pick a restaurant first, then select an existing food sale to edit it. Use the create action when you want to start a new listing."
           >
             {isPageLoading ? (
               <div className="rounded-[1.6rem] border border-border bg-surface-muted px-5 py-6 text-sm text-foreground/64">
@@ -700,6 +700,119 @@ export default function RestaurantFoodSalesPage() {
                   </select>
                 </label>
 
+                <div className="rounded-[1.6rem] border border-border bg-surface-muted/60 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-foreground">
+                        Current mode
+                      </p>
+                      <p className="text-sm leading-6 text-foreground/62">
+                        {selectedFoodSale
+                          ? "You are editing a selected food sale."
+                          : "You are creating a new food sale."}
+                      </p>
+                    </div>
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${
+                        selectedFoodSale
+                          ? "bg-primary-soft text-primary"
+                          : "bg-emerald-100 text-emerald-800"
+                      }`}
+                    >
+                      {selectedFoodSale ? "Edit selected" : "Create new"}
+                    </span>
+                  </div>
+
+                  {selectedFoodSale ? (
+                    <div className="mt-4 rounded-[1.2rem] border border-border bg-white p-4">
+                      <p className="text-base font-semibold text-foreground">
+                        {selectedFoodSale.title}
+                      </p>
+                      <p className="mt-2 text-sm leading-7 text-foreground/66">
+                        {selectedFoodSale.description}
+                      </p>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <span className="rounded-full border border-border bg-surface-muted px-3 py-1 text-xs font-medium text-foreground/72">
+                          EUR {selectedFoodSale.price.toFixed(2)}
+                        </span>
+                        <span className="rounded-full border border-border bg-surface-muted px-3 py-1 text-xs font-medium text-foreground/72">
+                          {selectedFoodSale.quantity
+                            ? `${selectedFoodSale.quantity} meals`
+                            : "Quantity unavailable"}
+                        </span>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={handleStartCreate}
+                    className="rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-white transition hover:bg-primary-strong"
+                  >
+                    Create new food sale
+                  </button>
+                  {selectedFoodSale ? (
+                    <button
+                      type="button"
+                      onClick={handleDelete}
+                      disabled={isDeleting}
+                      className="rounded-2xl border border-border bg-white px-4 py-3 text-sm font-semibold text-foreground transition hover:border-red-200 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {isDeleting ? "Deleting..." : "Delete selected"}
+                    </button>
+                  ) : null}
+                </div>
+
+                {isWorkspaceLoading ? (
+                  <div className="rounded-[1.6rem] border border-border bg-surface-muted px-5 py-6 text-sm text-foreground/64">
+                    Loading food sales...
+                  </div>
+                ) : foodSales.length > 0 ? (
+                  <div className="space-y-4">
+                    {foodSales.map((foodSale) => (
+                      <FoodSaleCard
+                        key={foodSale.id}
+                        foodSale={foodSale}
+                        isSelected={foodSale.id === selectedFoodSaleId}
+                        onSelect={handleSelectFoodSale}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="rounded-[1.6rem] border border-dashed border-border bg-surface-muted px-5 py-6 text-sm text-foreground/64">
+                      No active food sales for this restaurant yet.
+                    </div>
+                    <div className="rounded-[1.6rem] border border-border bg-white px-5 py-5 text-sm leading-7 text-foreground/64">
+                      Start with the create action above, then the new listing
+                      will appear here for future edits.
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </Panel>
+
+          <Panel
+            title={selectedFoodSale ? "Edit food sale" : "Create food sale"}
+            description={
+              selectedFoodSale
+                ? "Adjust the selected listing here. Switch back to create mode whenever you want to publish a separate meal."
+                : "Fill out the details for a new listing. Restaurant settings stay separate from the food-sale form below."
+            }
+          >
+            {isPageLoading ? (
+              <div className="rounded-[1.6rem] border border-border bg-surface-muted px-5 py-6 text-sm text-foreground/64">
+                Loading restaurant tools...
+              </div>
+            ) : restaurants.length === 0 ? (
+              <div className="rounded-[1.6rem] border border-dashed border-border bg-surface-muted px-5 py-6 text-sm text-foreground/64">
+                No owned restaurants came back from `/restaurants/by-owner` yet.
+              </div>
+            ) : (
+              <div className="space-y-5">
                 <form
                   className="space-y-4 rounded-[1.6rem] border border-border bg-surface-muted/60 p-4"
                   onSubmit={handleSaveRestaurant}
@@ -709,9 +822,9 @@ export default function RestaurantFoodSalesPage() {
                       Restaurant details
                     </p>
                     <p className="text-sm leading-6 text-foreground/62">
-                      The backend now lets restaurant owners update their own
-                      restaurant record, so this form edits the selected workspace
-                      directly.
+                      Keep the selected restaurant record accurate here. The
+                      food-sale editor stays below so the two tasks are easier to
+                      separate.
                     </p>
                   </div>
 
@@ -799,27 +912,31 @@ export default function RestaurantFoodSalesPage() {
                   </button>
                 </form>
 
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={handleStartCreate}
-                    className="rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-white transition hover:bg-primary-strong"
-                  >
-                    New food sale
-                  </button>
-                  {selectedFoodSale ? (
-                    <button
-                      type="button"
-                      onClick={handleDelete}
-                      disabled={isDeleting}
-                      className="rounded-2xl border border-border bg-white px-4 py-3 text-sm font-semibold text-foreground transition hover:border-red-200 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      {isDeleting ? "Deleting..." : "Delete selected"}
-                    </button>
-                  ) : null}
-                </div>
+                <form className="space-y-4 rounded-[1.6rem] border border-border bg-white p-5" onSubmit={handleSubmit}>
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-foreground">
+                        {selectedFoodSale
+                          ? "Selected listing"
+                          : "New listing details"}
+                      </p>
+                      <p className="text-sm leading-6 text-foreground/62">
+                        {selectedFoodSale
+                          ? "The form is prefilled from the card you selected on the left."
+                          : "Create a fresh food sale for the currently selected restaurant."}
+                      </p>
+                    </div>
+                    {selectedFoodSale ? (
+                      <button
+                        type="button"
+                        onClick={handleStartCreate}
+                        className="rounded-full border border-border bg-white px-4 py-2 text-sm font-semibold text-foreground/76 transition hover:border-primary/35 hover:bg-primary-soft/35"
+                      >
+                        Switch to create
+                      </button>
+                    ) : null}
+                  </div>
 
-                <form className="space-y-4" onSubmit={handleSubmit}>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <label className="space-y-2 sm:col-span-2">
                       <span className="text-sm font-semibold text-foreground">
@@ -966,9 +1083,9 @@ export default function RestaurantFoodSalesPage() {
 
                   {formMode === "edit" ? (
                     <div className="rounded-[1.4rem] border border-border bg-surface-muted px-4 py-4 text-sm leading-7 text-foreground/64">
-                      Food sale prices are entered here in lv for humans, then sent
-                      to the backend in cents. Description and quantity now update
-                      together with the rest of the food sale fields.
+                      Prices are entered here in EUR for humans, then sent to the
+                      backend in cents. This edit form updates the linked food and
+                      food-sale records together.
                     </div>
                   ) : null}
 
@@ -986,39 +1103,6 @@ export default function RestaurantFoodSalesPage() {
                         : "Save food sale changes"}
                   </button>
                 </form>
-              </div>
-            )}
-          </Panel>
-
-          <Panel
-            title="Active food sales"
-            description="These food sales are composed from the current restaurant's foods and food-sale records. Pick one to edit it, or start a new food sale from the left."
-          >
-            {isWorkspaceLoading ? (
-              <div className="rounded-[1.6rem] border border-border bg-surface-muted px-5 py-6 text-sm text-foreground/64">
-                Loading food sales...
-              </div>
-            ) : foodSales.length > 0 ? (
-              <div className="space-y-4">
-                {foodSales.map((foodSale) => (
-                  <FoodSaleCard
-                    key={foodSale.id}
-                    foodSale={foodSale}
-                    isSelected={foodSale.id === selectedFoodSaleId}
-                    onSelect={handleSelectFoodSale}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="rounded-[1.6rem] border border-dashed border-border bg-surface-muted px-5 py-6 text-sm text-foreground/64">
-                  No active food sales for this restaurant yet.
-                </div>
-                <div className="rounded-[1.6rem] border border-border bg-white px-5 py-5 text-sm leading-7 text-foreground/64">
-                  Create a food sale on the left to post a food + food-sale pair to
-                  the backend. Reservation queue details will fit here once the API
-                  adds a restaurant-facing reservations endpoint.
-                </div>
               </div>
             )}
           </Panel>

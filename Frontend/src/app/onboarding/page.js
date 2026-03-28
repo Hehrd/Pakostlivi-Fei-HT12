@@ -139,7 +139,7 @@ export default function OnboardingPage() {
                   Common Allergens
                 </p>
                 <p className="text-sm text-foreground/68">
-                  Choose the items you want MunchMun to keep in mind.
+                  Choose the items you want Munchman to keep in mind.
                 </p>
               </div>
 
@@ -174,7 +174,7 @@ export default function OnboardingPage() {
               disabled={isSaving || isLoadingAllergens}
               className="w-full rounded-2xl bg-primary px-4 py-3.5 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(31,143,87,0.22)] transition-[background-color,box-shadow] duration-200 ease-out hover:bg-primary-strong hover:shadow-[0_22px_45px_rgba(31,143,87,0.24)] focus:outline-none focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-80"
             >
-              {isSaving ? "Saving preferences..." : "Continue to MunchMun"}
+              {isSaving ? "Saving preferences..." : "Continue to Munchman"}
             </button>
           </form>
         </div>
