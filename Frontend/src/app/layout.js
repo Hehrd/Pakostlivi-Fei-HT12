@@ -17,11 +17,11 @@ const geistMono = Geist_Mono({
 
 export const metadata = {
   title: {
-    default: "MunchMun",
-    template: "%s | MunchMun",
+    default: "Munchman",
+    template: "%s | Munchman",
   },
   description:
-    "MunchMun helps users discover surplus meals, manage preferences, and coordinate pickups.",
+    "Munchman helps users discover surplus meals, manage preferences, and coordinate pickups.",
   icons: {
     icon: "/logo.png",
     shortcut: "/logo.png",

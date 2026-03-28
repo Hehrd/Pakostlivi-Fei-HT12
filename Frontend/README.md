@@ -1,6 +1,6 @@
-# MunchMun Frontend
+# Munchman Frontend
 
-A Next.js frontend for MunchMun.
+A Next.js frontend for Munchman.
 
 ## Run locally
 

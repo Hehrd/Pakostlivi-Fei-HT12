@@ -89,7 +89,7 @@ function ReservationCard({ reservation }) {
             Total
           </p>
           <p className="text-2xl font-semibold text-foreground">
-            {Number(reservation.totalPrice ?? reservation.price ?? 0).toFixed(2)} lv
+            EUR {Number(reservation.totalPrice ?? reservation.price ?? 0).toFixed(2)}
           </p>
           <p className="text-xs text-foreground/52">
             {reservation.paymentStatus}

@@ -230,7 +230,7 @@ function FoodSaleCard({
           </button>
         </div>
         <span className="rounded-full bg-primary-soft px-3 py-1 text-sm font-semibold text-primary">
-          {foodSale.price.toFixed(2)} lv
+          EUR {foodSale.price.toFixed(2)}
         </span>
       </div>
 

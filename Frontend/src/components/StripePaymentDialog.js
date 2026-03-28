@@ -106,7 +106,7 @@ function PaymentForm({ checkout, user, onClose, onSuccess }) {
         >
           {isSubmitting
             ? "Processing payment..."
-            : `Pay ${Number(checkout.foodSale?.price ?? 0).toFixed(2)} lv`}
+            : `Pay EUR ${Number(checkout.foodSale?.price ?? 0).toFixed(2)}`}
         </button>
       </div>
     </form>

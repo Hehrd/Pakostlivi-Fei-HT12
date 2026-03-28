@@ -78,14 +78,14 @@ export default function AppNavbar() {
           <span className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-primary/10 bg-white shadow-[0_8px_22px_rgba(17,51,34,0.08)]">
             <Image
               src="/logo.png"
-              alt="MunchMun logo"
+              alt="Munchman logo"
               width={40}
               height={40}
               className="h-full w-full object-cover"
               priority
             />
           </span>
-          <span>MunchMun</span>
+          <span>Munchman</span>
         </Link>
 
         <nav className="hidden items-center gap-2 md:flex">
@@ -162,7 +162,17 @@ export default function AppNavbar() {
               <span className="block text-xs text-foreground/55">{user.email}</span>
             </span>
             <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary-soft text-sm font-bold text-primary">
-              {initials || "MM"}
+              {initials ? (
+                initials
+              ) : (
+                <Image
+                  src="/logo.png"
+                  alt="Munchman logo"
+                  width={40}
+                  height={40}
+                  className="h-full w-full rounded-full object-cover"
+                />
+              )}
             </span>
           </button>
 

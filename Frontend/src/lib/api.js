@@ -123,6 +123,17 @@ function notifyAuthExpired() {
   window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
 }
 
+function isAuthFailureStatus(status) {
+  return status === 401 || status === 403;
+}
+
+function createExpiredSessionError(status = 401) {
+  return {
+    status,
+    message: "Your session expired. Please log in again.",
+  };
+}
+
 function shouldAttemptRefresh(path, retryOnUnauthorized) {
   if (API_MODE !== "real" || retryOnUnauthorized === false) {
     return false;
@@ -194,40 +205,46 @@ async function parseApiError(response) {
   }
 }
 
-export async function apiFetch(path, options = {}) {
+export async function apiRequest(path, options = {}) {
   const shouldRetryOnUnauthorized = shouldAttemptRefresh(
     path,
     options.retryOnUnauthorized
   );
   let response = await executeRequest(path, options);
+  let didRetryAfterRefresh = false;
 
-  if (response.status === 401 && shouldRetryOnUnauthorized) {
+  if (isAuthFailureStatus(response.status) && shouldRetryOnUnauthorized) {
     const didRefresh = await refreshSession();
 
     if (didRefresh) {
+      didRetryAfterRefresh = true;
       response = await executeRequest(path, {
         ...options,
         retryOnUnauthorized: false,
       });
     } else {
-      throw {
-        status: 401,
-        message: "Your session expired. Please log in again.",
-      };
+      throw createExpiredSessionError(response.status);
     }
   }
 
+  if (
+    !response.ok &&
+    isAuthFailureStatus(response.status) &&
+    shouldRetryOnUnauthorized &&
+    !didRetryAfterRefresh
+  ) {
+    notifyAuthExpired();
+    throw createExpiredSessionError(response.status);
+  }
+
+  return response;
+}
+
+export async function apiFetch(path, options = {}) {
+  const response = await apiRequest(path, options);
+
   if (!response.ok) {
     const error = await parseApiError(response);
-
-    if (response.status === 401 && shouldRetryOnUnauthorized) {
-      notifyAuthExpired();
-      throw {
-        ...error,
-        message: error.message || "Your session expired. Please log in again.",
-      };
-    }
-
     throw error;
   }
 

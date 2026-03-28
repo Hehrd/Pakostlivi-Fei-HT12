@@ -236,7 +236,7 @@ const RESERVATIONS = [
 function buildUser(overrides = {}) {
   return {
     id: 1,
-    email: "foodlover@munchmun.com",
+    email: "foodlover@munchman.com",
     firstName: "Save",
     lastName: "Foodhero",
     role: "CLIENT",
@@ -658,9 +658,9 @@ function requireClient(path, request) {
 let currentUser = null;
 const registeredUsers = new Map([
   [
-    "foodlover@munchmun.com",
+    "foodlover@munchman.com",
     buildUser({
-      email: "foodlover@munchmun.com",
+      email: "foodlover@munchman.com",
       firstName: "Save",
       lastName: "Foodhero",
     }),
@@ -674,10 +674,10 @@ const registeredUsers = new Map([
     }),
   ],
   [
-    "admin@munchmun.com",
+    "admin@munchman.com",
     buildUser({
       id: 100,
-      email: "admin@munchmun.com",
+      email: "admin@munchman.com",
       firstName: "Admin",
       lastName: "Fairy",
       role: "ADMIN",
@@ -685,10 +685,10 @@ const registeredUsers = new Map([
     }),
   ],
   [
-    "restaurant@munchmun.com",
+    "restaurant@munchman.com",
     buildUser({
       id: 200,
-      email: "restaurant@munchmun.com",
+      email: "restaurant@munchman.com",
       firstName: "Restaurant",
       lastName: "Owner",
       role: "RESTAURANT",
